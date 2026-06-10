@@ -72,6 +72,34 @@ main { flex: 1 1 auto; display: grid; grid-template-columns: 190px 1fr 460px; mi
 .badge.scene { background: #eaf1fd; color: #2d6cdf; }
 .card .fn { font-size: 12px; color: #444; margin-bottom: 6px; }
 .card .inout { font-size: 11px; color: #6b7280; margin-bottom: 8px; }
+
+/* 선택 배지 */
+.badge.sel-badge { background: #eafaf0; color: #2bb673; font-weight: 700; }
+.badge.sel-badge.none { background: #f1f2f4; color: #9aa3b0; }
+
+/* 변형 탭 */
+.vtabs { display: flex; gap: 4px; margin: 2px 0 8px; flex-wrap: wrap; }
+.vtab {
+  font-size: 12px; font-weight: 700; padding: 4px 12px; cursor: pointer;
+  border: 1px solid #d7dbe0; background: #f4f6f8; color: #5a626f;
+  border-radius: 6px 6px 0 0; border-bottom-width: 2px;
+}
+.vtab:hover { background: #eaeef3; }
+.vtab.active { background: #fff; color: #1d2127; border-bottom-color: #fff; box-shadow: 0 -1px 0 #2d6cdf inset; }
+.vtab.selected { color: #2bb673; }
+.vtab.kept { border-color: #e6a23c; }
+
+/* 변형 액션 */
+.vmemo { font-size: 11px; color: #6b7280; margin: 6px 0 2px; line-height: 1.5; }
+.vactions { display: flex; gap: 6px; margin-top: 8px; }
+.vselect, .vkeep {
+  font-size: 12px; font-weight: 700; padding: 5px 12px; cursor: pointer;
+  border-radius: 6px; border: 1px solid #cfd5dd; background: #fff; color: #2d6cdf;
+}
+.vselect:hover { background: #2d6cdf; color: #fff; }
+.vselect.on { background: #2bb673; color: #fff; border-color: #2bb673; }
+.vkeep:hover { background: #fdf0e3; }
+.vkeep.on { background: #e6a23c; color: #fff; border-color: #e6a23c; }
 .block { margin-top: 6px; }
 .block-head {
   display: flex; align-items: center; justify-content: space-between;

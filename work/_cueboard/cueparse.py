@@ -218,23 +218,47 @@ def parse_anchors(md: str):
 # ---------------------------------------------------------------- 프롬프트 파싱
 def parse_prompts(md: str):
     """
-    A안 03_프롬프트.md → {CUE_ID: {function, write, style, memo, title}}
-    헤딩 '### EP30_Q1' 또는 '## EP1_Q1' 둘 다 허용.
+    A안 03_프롬프트.md → {CUE_ID: {function, variants: [{label,write,style,title,memo}, ...]}}
+    큐 헤딩 '### EP30_Q1'(또는 '## EP1_Q1'). 큐 본문 안의 '#### 변형 A' 소헤딩으로 변형 분할.
+    변형 소헤딩이 없으면(레거시) 본문 전체를 단일 변형으로 처리한다.
     """
     out = {}
-    blocks = re.split(r"^#{2,3}\s+(EP\w+?_Q\d+)\s*$", md, flags=re.M)
+    # 큐 헤딩: '### EP30_Q1' 또는 '## EP30_Q1 — "제목"'(꼬리표 허용). #### 변형(4해시)은 제외.
+    blocks = re.split(r"^#{2,3}\s+(EP\w+?_Q\d+)\b.*$", md, flags=re.M)
     # blocks: [pre, id1, body1, id2, body2, ...]
     for i in range(1, len(blocks), 2):
         cid = blocks[i].strip()
         body = blocks[i + 1]
-        out[cid] = {
-            "function": _grab(body, r"기능\s*/\s*길이\s*[:：]\s*(.+)"),
-            "title": _grab(body, r"Title\s*[:：]\s*(.+)"),
-            "write": _grab_write(body),
-            "style": _grab_style(body),
-            "memo": _grab(body, r"메모\s*[:：]\s*(.+)"),
-        }
+        # 큐 레벨 '기능 / 길이'는 첫 변형(####) 앞에서 추출
+        head = re.split(r"^####\s+", body, maxsplit=1, flags=re.M)[0]
+        function = _grab(head, r"기능\s*/\s*길이\s*[:：]\s*(.+)")
+        # 변형 분할
+        parts = re.split(r"^####\s+(.+?)\s*$", body, flags=re.M)
+        variants = []
+        if len(parts) >= 3:                       # [pre, label1, vbody1, label2, vbody2, ...]
+            for j in range(1, len(parts), 2):
+                variants.append(_parse_variant(parts[j].strip(), parts[j + 1]))
+        else:                                     # 레거시 1변형(소헤딩 없음)
+            variants.append(_parse_variant("", body))
+        out[cid] = {"function": function, "variants": variants}
     return out
+
+
+def _parse_variant(label: str, vbody: str):
+    """변형 1개 본문 → {label, write, style, title, memo}. label은 '변형 A — ...'에서 A만 추려둠."""
+    short = label
+    m = re.search(r"변형\s*([A-Z가-힣\d]+)", label)
+    if m:
+        short = m.group(1)
+    elif label:
+        short = label.split("—")[0].split("-")[0].strip()[:8]
+    return {
+        "label": short or "",
+        "write": _grab_write(vbody),
+        "style": _grab_style(vbody),
+        "title": _grab(vbody, r"Title\s*[:：]\s*(.+)"),
+        "memo": _grab(vbody, r"메모\s*[:：]\s*(.+)"),
+    }
 
 
 def _grab(body: str, pat: str):
@@ -252,12 +276,13 @@ def _grab_style(body: str):
 
 
 def _grab_write(body: str):
-    """Write(구조 태그) 블록 또는 구조 메타태그 코드블록의 [태그]들."""
-    # A안: '- Write(구조 태그):' 다음 들여쓴 줄들
+    """Write(구조 태그) 블록 전체(태그 + 옆 사운드 지시 포함)를 줄 단위로 보존."""
+    # A안: '- Write(구조 태그):' 다음 들여쓴 줄들 — '- Title'/'- Styles' 또는 끝까지
     m = re.search(r"Write\s*\(구조 태그\)\s*[:：]\s*\n(.*?)(?=\n\s*-\s*Title|\n\s*-\s*Styles|\Z)", body, re.S)
     if m:
-        tags = re.findall(r"\[[^\]]+\]", m.group(1))
-        return "\n".join(tags)
+        lines = [ln.strip() for ln in m.group(1).strip("\n").splitlines()]
+        lines = [ln for ln in lines if ln]          # 빈 줄 제거, 들여쓰기 정리
+        return "\n".join(lines)
     # 구안: '**구조 메타태그**' 코드블록
     m = re.search(r"\*\*구조 메타태그\*\*\s*```(.*?)```", body, re.S)
     if m:
@@ -295,6 +320,8 @@ def build_episode(work_root: Path, project: str, n: int):
         except Exception:
             status = {}
 
+    selection = load_selection(ep)               # {cid: {selected:int|null, kept:[int]}}
+
     # 큐를 대본 순서대로 색 띠 구간에 매핑(앵커 우선, 없으면 커서 전진+보간 휴리스틱).
     mapped = _map_cues(text, spans, cue_rows, anchors)
 
@@ -303,6 +330,8 @@ def build_episode(work_root: Path, project: str, n: int):
         r = m["row"]
         cid = r["id"]
         p = prompts.get(cid, {})
+        variants = p.get("variants", [])
+        sel = selection.get(cid, {})
         cues.append({
             "id": cid,
             "scene": r["scene"],
@@ -314,10 +343,10 @@ def build_episode(work_root: Path, project: str, n: int):
             "char_start": m["cstart"],
             "char_end": m["cend"],
             "approx": m["approx"],
-            "write": p.get("write", ""),
-            "style": p.get("style", ""),
-            "title": p.get("title", ""),
-            "memo": p.get("memo") or r["memo"],
+            "variants": variants,
+            "selected": sel.get("selected"),      # int 또는 None
+            "kept": sel.get("kept", []),
+            "memo": r["memo"],
             "status": status.get(cid, "생성됨" if cid in prompts else "미작업"),
         })
 
@@ -329,6 +358,36 @@ def build_episode(work_root: Path, project: str, n: int):
         "scenes": [{"num": k, "start": v[0], "end": v[1]} for k, v in sorted(spans.items())],
         "cues": cues,
     }
+
+
+# ---------------------------------------------------------------- 선택/킵 영속화
+def load_selection(ep: Path):
+    """selection.json → {cid: {"selected": int|None, "kept": [int]}}. 없으면 {}."""
+    sf = ep / "selection.json"
+    if not sf.exists():
+        return {}
+    try:
+        return json.loads(sf.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_selection(ep: Path, cid: str, selected="__keep__", kept="__keep__"):
+    """
+    selection.json의 한 큐 항목을 머지 저장. 제공된 필드만 갱신(센티넬로 미변경 구분).
+    selected=int|None, kept=list[int]. 저장된 전체 dict 반환.
+    """
+    data = load_selection(ep)
+    cur = data.get(cid, {"selected": None, "kept": []})
+    if selected != "__keep__":
+        cur["selected"] = selected
+    if kept != "__keep__":
+        cur["kept"] = sorted({int(x) for x in (kept or [])})
+    data[cid] = cur
+    (ep / "selection.json").write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return data
 
 
 def _scope(spans, scene_nums, text_len):
@@ -453,9 +512,14 @@ if __name__ == "__main__":
         if len(seg) > 70:
             seg = seg[:67] + "..."
         flag = "  ~근사" if c["approx"] else ""
-        print(f"[{c['id']}] {c['scene']}  ({c['char_start']}~{c['char_end']}){flag}")
+        vs = c["variants"]
+        sel = c["selected"]
+        print(f"[{c['id']}] {c['scene']}  ({c['char_start']}~{c['char_end']}){flag}"
+              f"  변형{len(vs)}개 선택={sel} 킵={c['kept']}")
         print(f"   IN={c['in_quote']!r}  OUT={c['out_quote']!r}")
         print(f"   띠 구간: {seg}")
-        wr = (c["write"] or "").replace("\n", " ")
-        print(f"   Write={wr[:48]!r}…  Style={(c['style'] or '')[:40]!r}…")
+        for k, v in enumerate(vs):
+            mark = "●" if k == sel else ("★" if k in c["kept"] else " ")
+            wr = (v.get("write") or "").replace("\n", " ")
+            print(f"   {mark}{v.get('label') or chr(65 + k)}: Write={wr[:40]!r}  Style={(v.get('style') or '')[:34]!r}")
         print()

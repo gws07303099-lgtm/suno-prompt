@@ -54,6 +54,7 @@ async function loadEpisode(n) {
     li.classList.toggle("active", Number(li.dataset.n) === n));
   const data = await api(`/api/episode?p=${encodeURIComponent(CUR.project)}&n=${n}`);
   CUR.data = data;
+  CUR.activeVar = {};                    // 화 전환 시 활성 변형 상태 초기화
   $("#scripthead").textContent = `대본 — ${data.dir}`;
   renderScript(data);
   renderCards(data);
@@ -110,31 +111,117 @@ function renderCards(data) {
     }
     return;
   }
-  data.cues.forEach((c, i) => {
-    const card = el("div", "card");
-    card.dataset.cue = c.id;
-    card.style.borderLeftColor = color(i);
+  data.cues.forEach((c, i) => wrap.appendChild(buildCard(c, i)));
+}
 
-    const head = el("div", "card-head");
-    const cid = el("span", "cid"); cid.textContent = c.id; cid.style.color = "#1d2127";
-    head.appendChild(cid);
-    if (c.scene) { const b = el("span", "badge scene"); b.textContent = c.scene; head.appendChild(b); }
-    if (c.type) { const b = el("span", "badge"); b.textContent = c.type; head.appendChild(b); }
-    if (c.approx) { const b = el("span", "badge approx"); b.textContent = "근사"; head.appendChild(b); }
-    card.appendChild(head);
+const vlabel = (k) => String.fromCharCode(65 + k);          // 0→A,1→B,2→C
 
-    if (c.function) { const fn = el("div", "fn"); fn.textContent = c.function; card.appendChild(fn); }
+// 카드 1장 빌드(변형 탭 + 선택/킵). 상태 변경 시 노드만 교체해 재호출.
+function buildCard(c, i) {
+  const card = el("div", "card");
+  card.dataset.cue = c.id;
+  card.style.borderLeftColor = color(i);
 
-    const io = el("div", "inout");
-    io.textContent = `IN ${c.in_quote ? `“${c.in_quote}”` : "—"}  ▸  OUT ${c.out_quote ? `“${c.out_quote}”` : "—"}`;
-    card.appendChild(io);
+  const vars = c.variants || [];
+  const sel = (c.selected != null) ? c.selected : null;
+  const kept = c.kept || [];
 
-    card.appendChild(block("Write 탭", c.write));
-    card.appendChild(block("Style 탭", c.style));
+  // 헤더
+  const head = el("div", "card-head");
+  const cid = el("span", "cid"); cid.textContent = c.id;
+  head.appendChild(cid);
+  if (c.scene) { const b = el("span", "badge scene"); b.textContent = c.scene; head.appendChild(b); }
+  if (c.type) { const b = el("span", "badge"); b.textContent = c.type; head.appendChild(b); }
+  if (c.approx) { const b = el("span", "badge approx"); b.textContent = "근사"; head.appendChild(b); }
+  const sb = el("span", "badge sel-badge");
+  sb.textContent = sel != null ? `★선택 ${(vars[sel] && vars[sel].label) || vlabel(sel)}` : "미선택";
+  if (sel == null) sb.classList.add("none");
+  head.appendChild(sb);
+  card.appendChild(head);
 
-    card.onclick = (e) => { if (!e.target.classList.contains("copy")) selectCue(c.id, "card"); };
-    wrap.appendChild(card);
+  if (c.function) { const fn = el("div", "fn"); fn.textContent = c.function; card.appendChild(fn); }
+  const io = el("div", "inout");
+  io.textContent = `IN ${c.in_quote ? `“${c.in_quote}”` : "—"}  ▸  OUT ${c.out_quote ? `“${c.out_quote}”` : "—"}`;
+  card.appendChild(io);
+
+  if (!vars.length) {
+    const e = el("div", "empty"); e.textContent = "이 큐는 아직 프롬프트가 없습니다.";
+    card.appendChild(e);
+    card.onclick = (ev) => { if (!ev.target.closest("button")) selectCue(c.id, "card"); };
+    return card;
+  }
+
+  // 활성 변형(로컬 상태 우선, 없으면 선택본, 그것도 없으면 A)
+  CUR.activeVar = CUR.activeVar || {};
+  let active = (CUR.activeVar[c.id] != null) ? CUR.activeVar[c.id] : (sel != null ? sel : 0);
+  if (active >= vars.length) active = 0;
+  CUR.activeVar[c.id] = active;
+
+  // 변형 탭
+  const tabs = el("div", "vtabs");
+  vars.forEach((v, k) => {
+    const tab = el("button", "vtab");
+    const lab = v.label || vlabel(k);
+    tab.textContent = lab + (k === sel ? " ●" : "") + (kept.includes(k) ? " ★" : "");
+    if (k === active) tab.classList.add("active");
+    if (k === sel) tab.classList.add("selected");
+    if (kept.includes(k)) tab.classList.add("kept");
+    tab.onclick = (e) => { e.stopPropagation(); CUR.activeVar[c.id] = k; replaceCardById(c.id); };
+    tabs.appendChild(tab);
   });
+  card.appendChild(tabs);
+
+  // 활성 변형 내용
+  const v = vars[active];
+  card.appendChild(block("Write 탭", v.write));
+  card.appendChild(block("Style 탭", v.style));
+  if (v.memo) { const m = el("div", "vmemo"); m.textContent = "📝 " + v.memo; card.appendChild(m); }
+
+  // 액션
+  const act = el("div", "vactions");
+  const isSel = active === sel;
+  const selBtn = el("button", "vselect" + (isSel ? " on" : ""));
+  selBtn.textContent = isSel ? "✓ 선택됨" : "이 변형 선택";
+  selBtn.onclick = (e) => { e.stopPropagation(); postSelect(c.id, { selected: isSel ? null : active }); };
+  const isKept = kept.includes(active);
+  const keepBtn = el("button", "vkeep" + (isKept ? " on" : ""));
+  keepBtn.textContent = isKept ? "★ 킵됨" : "☆ 킵";
+  keepBtn.onclick = (e) => {
+    e.stopPropagation();
+    const s = new Set(kept);
+    s.has(active) ? s.delete(active) : s.add(active);
+    postSelect(c.id, { kept: [...s].sort((a, b) => a - b) });
+  };
+  act.append(selBtn, keepBtn);
+  card.appendChild(act);
+
+  card.onclick = (e) => { if (!e.target.closest("button")) selectCue(c.id, "card"); };
+  return card;
+}
+
+async function postSelect(cid, changes) {
+  try {
+    const r = await fetch("/api/select", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: CUR.project, n: CUR.n, cue: cid, ...changes }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "저장 실패");
+    const c = CUR.data.cues.find((x) => x.id === cid);
+    if (c) {
+      if ("selected" in changes) c.selected = j.selection.selected;
+      if ("kept" in changes) c.kept = j.selection.kept || [];
+    }
+    replaceCardById(cid);
+  } catch (e) { alert("선택 저장 오류: " + e.message); }
+}
+
+function replaceCardById(cid) {
+  const i = CUR.data.cues.findIndex((x) => x.id === cid);
+  if (i < 0) return;
+  const old = document.querySelector(`.card[data-cue="${CSS.escape(cid)}"]`);
+  const fresh = buildCard(CUR.data.cues[i], i);
+  if (old) old.replaceWith(fresh);
 }
 
 function block(title, content) {

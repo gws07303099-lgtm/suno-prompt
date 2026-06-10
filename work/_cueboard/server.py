@@ -59,15 +59,19 @@ def _running_for(project, n):
     return None
 
 
-def start_spot_job(project, n):
+def start_spot_job(project, n, mode="full"):
     """잡 등록 + 워커 스레드 기동. (job_id, error) 반환."""
     if CLAUDE_BIN is None:
         return None, "claude 실행파일을 찾을 수 없음(PATH 확인)"
+    if mode not in ("full", "prompts"):
+        return None, f"알 수 없는 mode: {mode}"
     ep = cueparse._ep_dir(WORK_ROOT, project, n)
     if ep is None:
         return None, f"{project} {n}화 폴더 없음"
     if not (ep / "00_대본raw.txt").exists():
         return None, f"{n}화 대본(00_대본raw.txt) 없음 — 스팟팅 불가"
+    if mode == "prompts" and not (ep / "02_큐시트.md").exists():
+        return None, f"{n}화 큐시트(02_큐시트.md) 없음 — prompts 재생성 불가(full로 실행)"
     dup = _running_for(project, n)
     if dup:
         return dup, None                      # 중복 시작 방지: 기존 잡 반환
@@ -76,17 +80,17 @@ def start_spot_job(project, n):
     log_path = ep / "_spot_log.txt"
     with JOBS_LOCK:
         JOBS[jid] = {
-            "id": jid, "project": project, "n": n, "status": "queued",
+            "id": jid, "project": project, "n": n, "mode": mode, "status": "queued",
             "started": time.time(), "ended": None, "returncode": None,
             "log": str(log_path), "tail": "",
         }
-    t = threading.Thread(target=_run_spot, args=(jid, project, n, ep, log_path), daemon=True)
+    t = threading.Thread(target=_run_spot, args=(jid, project, n, ep, log_path, mode), daemon=True)
     t.start()
     return jid, None
 
 
-def _run_spot(jid, project, n, ep, log_path):
-    prompt = spot_prompt(project, n, ep, WORK_ROOT, PROJ_ROOT)
+def _run_spot(jid, project, n, ep, log_path, mode="full"):
+    prompt = spot_prompt(project, n, ep, WORK_ROOT, PROJ_ROOT, mode=mode)
     cmd = [
         CLAUDE_BIN, "-p",
         "--permission-mode", PERMISSION_MODE,
@@ -109,7 +113,10 @@ def _run_spot(jid, project, n, ep, log_path):
             tail = "\n".join(log_path.read_text(encoding="utf-8").splitlines()[-12:])
         except Exception:
             pass
-        ok = (rc == 0) and (ep / "02_큐시트.md").exists() and (ep / "03_프롬프트.md").exists()
+        # done 판정: prompts 모드는 03만, full은 02+03 존재 확인
+        ok = (rc == 0) and (ep / "03_프롬프트.md").exists()
+        if mode == "full":
+            ok = ok and (ep / "02_큐시트.md").exists()
         with JOBS_LOCK:
             JOBS[jid].update(
                 status="done" if ok else "error",
@@ -158,6 +165,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ct)
         self.send_header("Content-Length", str(len(body)))
+        # 정적 자원(JS/CSS/HTML) 캐시 무효화 — 코드 갱신 시 브라우저가 옛 파일 쓰는 문제 방지
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.end_headers()
         self.wfile.write(body)
 
@@ -222,10 +231,10 @@ class Handler(BaseHTTPRequestHandler):
 
         self._err("unknown api", 404)
 
-    # ---- POST: 자동 스팟팅 시작 ----
+    # ---- POST: 자동 스팟팅 시작 / 선택·킵 저장 ----
     def do_POST(self):
         u = urlparse(self.path)
-        if u.path != "/api/spot":
+        if u.path not in ("/api/spot", "/api/select"):
             self._err("unknown api", 404)
             return
         try:
@@ -235,6 +244,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._err(f"bad request: {e}")
             return
+
         project = payload.get("project") or DEFAULT_PROJECT
         n = payload.get("n")
         if not isinstance(n, int):
@@ -243,11 +253,30 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 self._err("n(화 번호) 필요")
                 return
-        jid, err = start_spot_job(project, n)
-        if err:
-            self._err(err)
+
+        if u.path == "/api/spot":
+            mode = payload.get("mode") or "full"
+            jid, err = start_spot_job(project, n, mode=mode)
+            if err:
+                self._err(err)
+                return
+            self._json({"job_id": jid, "project": project, "n": n, "mode": mode})
             return
-        self._json({"job_id": jid, "project": project, "n": n})
+
+        # /api/select — selection.json 머지 저장
+        cid = payload.get("cue")
+        if not cid:
+            self._err("cue(CUE_ID) 필요")
+            return
+        ep = cueparse._ep_dir(WORK_ROOT, project, n)
+        if ep is None:
+            self._err(f"{project} {n}화 폴더 없음", 404)
+            return
+        SENT = "__keep__"
+        selected = payload.get("selected", SENT)   # int|null|미제공
+        kept = payload.get("kept", SENT)           # list|미제공
+        data = cueparse.save_selection(ep, cid, selected=selected, kept=kept)
+        self._json({"ok": True, "cue": cid, "selection": data.get(cid, {})})
 
     def log_message(self, fmt, *args):       # 조용한 로그(요청 1줄)
         sys.stderr.write(f"  {self.address_string()} {fmt % args}\n")
