@@ -1,0 +1,33 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- Cue Board 런타임 산출물 ----
+work/_cueboard/_jobs/
+**/_spot_log.txt
+**/_spot_prompt.txt
+
+# ---- 오디오(브금 음원 — 대용량/바이너리) ----
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.aac
+*.ogg
+
+# ---- OCR 중간 산출물(원본 PDF에서 파생, 재생성 가능) ----
+work/_pages/
+work/_ocr/
+work/_montage_*.png
+
+# ---- 영상/기타 대용량 ----
+*.mp4
+*.mov
+
+# ---- OS ----
+Thumbs.db
+desktop.ini
+.DS_Store

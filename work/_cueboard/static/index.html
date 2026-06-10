@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cue Board</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Cue Board</h1>
+    <select id="project"></select>
+    <span id="meta" class="meta"></span>
+  </header>
+
+  <main>
+    <aside id="eplist" class="pane">
+      <div class="pane-title">화 목록</div>
+      <ul id="episodes"></ul>
+    </aside>
+
+    <section id="scriptpane" class="pane">
+      <div class="pane-title" id="scripthead">대본</div>
+      <div id="script" class="script">화를 선택하세요.</div>
+    </section>
+
+    <section id="cardpane" class="pane">
+      <div class="pane-title">큐 카드</div>
+      <div id="cards" class="cards"></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

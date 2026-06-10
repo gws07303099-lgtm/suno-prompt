@@ -1,0 +1,104 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  color: #1d2127; background: #eef0f3; display: flex; flex-direction: column;
+}
+
+header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 16px; background: #1d2127; color: #fff; flex: 0 0 auto;
+}
+header h1 { font-size: 16px; margin: 0; letter-spacing: .5px; }
+header select { padding: 4px 8px; border-radius: 6px; border: 0; font-size: 13px; }
+.meta { font-size: 12px; color: #9aa3b0; margin-left: auto; }
+
+main { flex: 1 1 auto; display: grid; grid-template-columns: 190px 1fr 460px; min-height: 0; }
+.pane { overflow-y: auto; border-right: 1px solid #d7dbe0; background: #fff; }
+#cardpane { border-right: 0; background: #f6f7f9; }
+.pane-title {
+  position: sticky; top: 0; z-index: 2; padding: 8px 12px;
+  font-size: 12px; font-weight: 700; color: #5a626f;
+  background: #fafbfc; border-bottom: 1px solid #e4e7eb;
+}
+
+/* 화 목록 */
+#episodes { list-style: none; margin: 0; padding: 6px; }
+#episodes li {
+  padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+}
+#episodes li:hover { background: #eef2f7; }
+#episodes li.active { background: #2d6cdf; color: #fff; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; background: #cfd5dd; }
+.dot.done { background: #2bb673; }
+.dot.script { background: #e6a23c; }
+#episodes li.active .dot { outline: 1px solid #fff; }
+.epn { flex: 1 1 auto; }
+.epq { font-size: 11px; opacity: .7; }
+
+/* 대본 */
+.script {
+  white-space: pre-wrap; word-break: break-word; line-height: 1.85;
+  font-size: 14px; padding: 16px 20px; font-family: "Malgun Gothic", sans-serif;
+}
+.band {
+  border-radius: 3px; padding: 1px 0; cursor: pointer;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.12); transition: filter .12s;
+}
+.band:hover { filter: brightness(.94); }
+.band.sel { outline: 2px solid #1d2127; outline-offset: 1px; }
+.band-label {
+  font-size: 10px; font-weight: 700; vertical-align: super;
+  padding: 0 3px; margin-right: 2px; border-radius: 3px;
+  background: rgba(0,0,0,.55); color: #fff; cursor: pointer;
+}
+.scene-mark { display: inline-block; font-weight: 700; color: #2d6cdf; }
+
+/* 큐 카드 */
+.cards { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.card {
+  background: #fff; border: 1px solid #e1e5ea; border-left-width: 5px;
+  border-radius: 8px; padding: 10px 12px; scroll-margin-top: 44px;
+}
+.card.sel { box-shadow: 0 0 0 2px #2d6cdf; }
+.card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cid { font-weight: 800; font-size: 13px; }
+.badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 10px;
+  background: #eef2f7; color: #5a626f;
+}
+.badge.approx { background: #fdf0e3; color: #c87d24; }
+.badge.scene { background: #eaf1fd; color: #2d6cdf; }
+.card .fn { font-size: 12px; color: #444; margin-bottom: 6px; }
+.card .inout { font-size: 11px; color: #6b7280; margin-bottom: 8px; }
+.block { margin-top: 6px; }
+.block-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; font-weight: 700; color: #5a626f; margin-bottom: 3px;
+}
+.block pre {
+  margin: 0; padding: 7px 9px; background: #f4f6f8; border-radius: 6px;
+  font-size: 11.5px; white-space: pre-wrap; word-break: break-word;
+  font-family: "Consolas", "D2Coding", monospace; max-height: 150px; overflow: auto;
+}
+.copy { font-size: 11px; border: 1px solid #cfd5dd; background: #fff; color: #2d6cdf;
+  border-radius: 5px; padding: 2px 8px; cursor: pointer; }
+.copy:hover { background: #2d6cdf; color: #fff; }
+.copy.ok { background: #2bb673; color: #fff; border-color: #2bb673; }
+.empty { padding: 16px 12px 6px; color: #8a93a0; font-size: 13px; }
+
+/* 자동 스팟팅 */
+.spotbtn {
+  margin: 4px 12px; padding: 10px 14px; font-size: 14px; font-weight: 700;
+  color: #fff; background: #2d6cdf; border: 0; border-radius: 8px; cursor: pointer;
+}
+.spotbtn:hover:not(:disabled) { background: #2257bd; }
+.spotbtn:disabled { background: #9bb4e6; cursor: default; }
+.spotnote { margin: 2px 12px 8px; font-size: 11.5px; color: #8a93a0; line-height: 1.5; }
+.joblog {
+  margin: 4px 12px; padding: 8px 10px; background: #14171c; color: #cfe3d0;
+  border-radius: 6px; font-family: "Consolas", "D2Coding", monospace;
+  font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  max-height: 320px; overflow: auto;
+}

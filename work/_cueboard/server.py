@@ -1,0 +1,270 @@
+# -*- coding: utf-8 -*-
+"""
+Cue Board 로컬 서버 — 표준 라이브러리만(의존성 0).
+
+실행:  python server.py            (기본 127.0.0.1:8765, work/ 자동 탐지)
+        python server.py 8800       (포트 지정)
+브라우저: http://127.0.0.1:8765/
+
+API (v0.1 — 두뇌 호출 없음, 읽기 전용):
+  GET /api/projects            → 작품 목록
+  GET /api/episodes?p=<작품>   → 화 목록 + 진행상태
+  GET /api/episode?p=<작품>&n=<번호>
+                               → 대본 원문 + 큐 카드(색 띠 char offset 포함)
+정적: /  → static/index.html, 그 외 → static/<path>
+"""
+import json
+import sys
+import shutil
+import threading
+import subprocess
+import time
+import uuid
+from pathlib import Path
+from urllib.parse import urlparse, parse_qs
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import cueparse
+from spotjob import spot_prompt
+
+HERE = Path(__file__).resolve().parent
+STATIC = HERE / "static"
+WORK_ROOT = HERE.parent                 # work/
+PROJ_ROOT = WORK_ROOT.parent            # suno prompt/ (.claude·스킬·에이전트 위치)
+DEFAULT_PROJECT = "며느리가친정을숨김"
+
+CLAUDE_BIN = shutil.which("claude")     # 헤들리스 두뇌(구독 인증 재사용·무과금 API키 아님)
+PERMISSION_MODE = "acceptEdits"         # 편집만 자동수락(Bash 등 위험 도구는 막힘)
+SPOT_MODEL = "sonnet"
+
+# ---- 자동 스팟팅 잡 레지스트리(인메모리) ----
+JOBS = {}                               # job_id -> {project,n,status,started,ended,returncode,log}
+JOBS_LOCK = threading.Lock()
+
+CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+}
+
+
+# ---------------------------------------------------------------- 자동 스팟팅 잡
+def _running_for(project, n):
+    """해당 화에 대해 이미 진행 중인 잡이 있으면 job_id 반환."""
+    with JOBS_LOCK:
+        for jid, j in JOBS.items():
+            if j["project"] == project and j["n"] == n and j["status"] in ("queued", "running"):
+                return jid
+    return None
+
+
+def start_spot_job(project, n):
+    """잡 등록 + 워커 스레드 기동. (job_id, error) 반환."""
+    if CLAUDE_BIN is None:
+        return None, "claude 실행파일을 찾을 수 없음(PATH 확인)"
+    ep = cueparse._ep_dir(WORK_ROOT, project, n)
+    if ep is None:
+        return None, f"{project} {n}화 폴더 없음"
+    if not (ep / "00_대본raw.txt").exists():
+        return None, f"{n}화 대본(00_대본raw.txt) 없음 — 스팟팅 불가"
+    dup = _running_for(project, n)
+    if dup:
+        return dup, None                      # 중복 시작 방지: 기존 잡 반환
+
+    jid = uuid.uuid4().hex[:8]
+    log_path = ep / "_spot_log.txt"
+    with JOBS_LOCK:
+        JOBS[jid] = {
+            "id": jid, "project": project, "n": n, "status": "queued",
+            "started": time.time(), "ended": None, "returncode": None,
+            "log": str(log_path), "tail": "",
+        }
+    t = threading.Thread(target=_run_spot, args=(jid, project, n, ep, log_path), daemon=True)
+    t.start()
+    return jid, None
+
+
+def _run_spot(jid, project, n, ep, log_path):
+    prompt = spot_prompt(project, n, ep, WORK_ROOT, PROJ_ROOT)
+    cmd = [
+        CLAUDE_BIN, "-p",
+        "--permission-mode", PERMISSION_MODE,
+        "--model", SPOT_MODEL,
+        "--add-dir", str(PROJ_ROOT),       # cwd(화 폴더) 밖의 바이블·스킬 읽기 허용
+    ]
+    with JOBS_LOCK:
+        JOBS[jid]["status"] = "running"
+    try:
+        with open(log_path, "w", encoding="utf-8") as lf:
+            proc = subprocess.Popen(
+                cmd, cwd=str(ep),
+                stdin=subprocess.PIPE, stdout=lf, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8",
+            )
+            proc.communicate(prompt)
+            rc = proc.returncode
+        tail = ""
+        try:
+            tail = "\n".join(log_path.read_text(encoding="utf-8").splitlines()[-12:])
+        except Exception:
+            pass
+        ok = (rc == 0) and (ep / "02_큐시트.md").exists() and (ep / "03_프롬프트.md").exists()
+        with JOBS_LOCK:
+            JOBS[jid].update(
+                status="done" if ok else "error",
+                ended=time.time(), returncode=rc, tail=tail,
+            )
+    except Exception as e:
+        with JOBS_LOCK:
+            JOBS[jid].update(status="error", ended=time.time(), tail=f"{type(e).__name__}: {e}")
+
+
+def job_view(jid):
+    with JOBS_LOCK:
+        j = JOBS.get(jid)
+        if not j:
+            return None
+        out = dict(j)
+    # 진행 중이면 로그 꼬리 갱신
+    if out["status"] in ("queued", "running"):
+        try:
+            out["tail"] = "\n".join(Path(out["log"]).read_text(encoding="utf-8").splitlines()[-12:])
+        except Exception:
+            pass
+    out["elapsed"] = round((out["ended"] or time.time()) - out["started"], 1)
+    return out
+
+
+class Handler(BaseHTTPRequestHandler):
+    # ---- 응답 헬퍼 ----
+    def _json(self, obj, code=200):
+        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _err(self, msg, code=400):
+        self._json({"error": msg}, code)
+
+    def _file(self, path: Path):
+        if not path.is_file():
+            self._err("not found", 404)
+            return
+        body = path.read_bytes()
+        ct = CONTENT_TYPES.get(path.suffix, "application/octet-stream")
+        self.send_response(200)
+        self.send_header("Content-Type", ct)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    # ---- 라우팅 ----
+    def do_GET(self):
+        u = urlparse(self.path)
+        q = parse_qs(u.query)
+        path = u.path
+
+        if path.startswith("/api/"):
+            try:
+                self._api(path, q)
+            except Exception as e:
+                self._err(f"{type(e).__name__}: {e}", 500)
+            return
+
+        # 정적 파일
+        if path == "/" or path == "":
+            self._file(STATIC / "index.html")
+            return
+        rel = path.lstrip("/")
+        target = (STATIC / rel).resolve()
+        if STATIC.resolve() not in target.parents and target != STATIC.resolve():
+            self._err("forbidden", 403)       # 디렉터리 탈출 방지
+            return
+        self._file(target)
+
+    def _api(self, path, q):
+        project = (q.get("p") or [DEFAULT_PROJECT])[0]
+
+        if path == "/api/projects":
+            self._json({"projects": cueparse.list_projects(WORK_ROOT)})
+            return
+
+        if path == "/api/episodes":
+            self._json({
+                "project": project,
+                "episodes": cueparse.list_episodes(WORK_ROOT, project),
+            })
+            return
+
+        if path == "/api/episode":
+            n = q.get("n", [None])[0]
+            if n is None or not n.isdigit():
+                self._err("n(화 번호) 필요")
+                return
+            data = cueparse.build_episode(WORK_ROOT, project, int(n))
+            if data is None:
+                self._err(f"{project} {n}화 없음", 404)
+                return
+            self._json(data)
+            return
+
+        if path == "/api/job":
+            jid = q.get("id", [None])[0]
+            view = job_view(jid) if jid else None
+            if view is None:
+                self._err("job 없음", 404)
+                return
+            self._json(view)
+            return
+
+        self._err("unknown api", 404)
+
+    # ---- POST: 자동 스팟팅 시작 ----
+    def do_POST(self):
+        u = urlparse(self.path)
+        if u.path != "/api/spot":
+            self._err("unknown api", 404)
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(length) if length else b"{}"
+            payload = json.loads(body.decode("utf-8") or "{}")
+        except Exception as e:
+            self._err(f"bad request: {e}")
+            return
+        project = payload.get("project") or DEFAULT_PROJECT
+        n = payload.get("n")
+        if not isinstance(n, int):
+            try:
+                n = int(n)
+            except Exception:
+                self._err("n(화 번호) 필요")
+                return
+        jid, err = start_spot_job(project, n)
+        if err:
+            self._err(err)
+            return
+        self._json({"job_id": jid, "project": project, "n": n})
+
+    def log_message(self, fmt, *args):       # 조용한 로그(요청 1줄)
+        sys.stderr.write(f"  {self.address_string()} {fmt % args}\n")
+
+
+def main():
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+    httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    print(f"Cue Board  →  http://127.0.0.1:{port}/")
+    print(f"  work root: {WORK_ROOT}")
+    print(f"  작품 기본값: {DEFAULT_PROJECT}   (Ctrl+C 종료)")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\n종료.")
+        httpd.shutdown()
+
+
+if __name__ == "__main__":
+    main()
