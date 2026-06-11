@@ -218,9 +218,12 @@ def parse_anchors(md: str):
 # ---------------------------------------------------------------- 프롬프트 파싱
 def parse_prompts(md: str):
     """
-    A안 03_프롬프트.md → {CUE_ID: {function, variants: [{label,write,style,title,memo}, ...]}}
+    A안 03_프롬프트.md → {CUE_ID: {function, variants: [{label,write,style,title,memo}, ...],
+                                    reuse_type: str|None, reuse_cid: str|None}}
     큐 헤딩 '### EP30_Q1'(또는 '## EP1_Q1'). 큐 본문 안의 '#### 변형 A' 소헤딩으로 변형 분할.
     변형 소헤딩이 없으면(레거시) 본문 전체를 단일 변형으로 처리한다.
+    재사용 큐: 본문에 '[재사용: EP30_Q1]' 또는 '[재사용_기반: EP30_Q1]' 한 줄만 있으면
+    variants=[]로 두고 reuse_type/reuse_cid를 채운다.
     """
     out = {}
     # 큐 헤딩: '### EP30_Q1' 또는 '## EP30_Q1 — "제목"'(꼬리표 허용). #### 변형(4해시)은 제외.
@@ -229,6 +232,16 @@ def parse_prompts(md: str):
     for i in range(1, len(blocks), 2):
         cid = blocks[i].strip()
         body = blocks[i + 1]
+        # 재사용 큐 감지: '[재사용: EP30_Q1]' 또는 '[재사용_기반: EP30_Q1]'
+        reuse_m = re.search(r'\[(재사용(?:_기반)?)\s*:\s*(EP\w+_Q\d+)\]', body)
+        if reuse_m:
+            out[cid] = {
+                "function": "",
+                "variants": [],
+                "reuse_type": reuse_m.group(1),
+                "reuse_cid": reuse_m.group(2),
+            }
+            continue
         # 큐 레벨 '기능 / 길이'는 첫 변형(####) 앞에서 추출
         head = re.split(r"^####\s+", body, maxsplit=1, flags=re.M)[0]
         function = _grab(head, r"기능\s*/\s*길이\s*[:：]\s*(.+)")
@@ -240,7 +253,7 @@ def parse_prompts(md: str):
                 variants.append(_parse_variant(parts[j].strip(), parts[j + 1]))
         else:                                     # 레거시 1변형(소헤딩 없음)
             variants.append(_parse_variant("", body))
-        out[cid] = {"function": function, "variants": variants}
+        out[cid] = {"function": function, "variants": variants, "reuse_type": None, "reuse_cid": None}
     return out
 
 
@@ -332,6 +345,7 @@ def build_episode(work_root: Path, project: str, n: int):
         p = prompts.get(cid, {})
         variants = p.get("variants", [])
         sel = selection.get(cid, {})
+        ro = sel.get("range_override")  # Feature 2: 드래그 오버라이드
         cues.append({
             "id": cid,
             "scene": r["scene"],
@@ -340,12 +354,15 @@ def build_episode(work_root: Path, project: str, n: int):
             "inout": r["inout"],
             "in_quote": m["in_q"],
             "out_quote": m["out_q"],
-            "char_start": m["cstart"],
-            "char_end": m["cend"],
-            "approx": m["approx"],
+            "char_start": ro["start"] if ro else m["cstart"],
+            "char_end": ro["end"] if ro else m["cend"],
+            "approx": m["approx"] and not ro,
             "variants": variants,
+            "reuse_type": p.get("reuse_type"),   # '재사용' | '재사용_기반' | None
+            "reuse_cid": p.get("reuse_cid"),     # 'EP30_Q1' | None
             "selected": sel.get("selected"),      # int 또는 None
             "kept": sel.get("kept", []),
+            "comment": sel.get("comment"),        # 감독 코멘트 (Feature 2)
             "memo": r["memo"],
             "status": status.get(cid, "생성됨" if cid in prompts else "미작업"),
         })
@@ -372,10 +389,13 @@ def load_selection(ep: Path):
         return {}
 
 
-def save_selection(ep: Path, cid: str, selected="__keep__", kept="__keep__"):
+def save_selection(ep: Path, cid: str, selected="__keep__", kept="__keep__",
+                   range_override="__keep__", comment="__keep__"):
     """
     selection.json의 한 큐 항목을 머지 저장. 제공된 필드만 갱신(센티넬로 미변경 구분).
-    selected=int|None, kept=list[int]. 저장된 전체 dict 반환.
+    selected=int|None, kept=list[int],
+    range_override={"start": int, "end": int}|None,
+    comment=str|None. 저장된 전체 dict 반환.
     """
     data = load_selection(ep)
     cur = data.get(cid, {"selected": None, "kept": []})
@@ -383,6 +403,16 @@ def save_selection(ep: Path, cid: str, selected="__keep__", kept="__keep__"):
         cur["selected"] = selected
     if kept != "__keep__":
         cur["kept"] = sorted({int(x) for x in (kept or [])})
+    if range_override != "__keep__":
+        if range_override is None:
+            cur.pop("range_override", None)
+        else:
+            cur["range_override"] = range_override
+    if comment != "__keep__":
+        if comment is None:
+            cur.pop("comment", None)
+        else:
+            cur["comment"] = comment
     data[cid] = cur
     (ep / "selection.json").write_text(
         json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"

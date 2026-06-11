@@ -54,10 +54,12 @@ def _variant_format(n: int) -> str:
 
 
 def spot_prompt(project: str, n: int, ep_dir: Path, work_root: Path,
-                proj_root: Path, mode: str = "full") -> str:
+                proj_root: Path, mode: str = "full",
+                cue_filter: str | None = None, note: str | None = None) -> str:
     """
-    mode="full"    : 신규 화 — 분석→큐시트(앵커)→프롬프트(3변형)→QA, 4파일 생성.
-    mode="prompts" : 기존 화 — 02_큐시트 그대로 두고 03_프롬프트만 3변형 재생성(01·02 미수정).
+    mode="full"       : 신규 화 — 분석→큐시트(앵커)→프롬프트(3변형)→QA, 4파일 생성.
+    mode="prompts"    : 기존 화 — 02_큐시트 그대로 두고 03_프롬프트만 3변형 재생성.
+    mode="single_cue" : cue_filter로 지정한 큐 하나만 프롬프트 재생성. note(감독 코멘트) 주입.
     """
     script = ep_dir / "00_대본raw.txt"
     bible = ep_dir.parent / "_작품공통" / "00_음악바이블.md"   # 정규화-안전: 화 폴더의 부모
@@ -78,6 +80,23 @@ def spot_prompt(project: str, n: int, ep_dir: Path, work_root: Path,
 1. 대본 원문:    {p(script)}
 2. 음악 바이블:  {p(bible)}   ← 베이스톤·라이트모티프·악기 팔레트·금기. 최우선 준수.
 3. SUNO 가이드:  {p(skill)}   ← 프롬프트 표준(A안: Write 탭 구조태그 + Style 텍스트).
+"""
+
+    if mode == "single_cue":
+        note_block = f"\n\n**감독 코멘트(반드시 반영):** {note}" if note else ""
+        return header + f"""4. 기존 큐시트: {p(out_02)}   ← CUE_ID·기능·앵커·씬을 그대로 따른다.
+5. 기존 프롬프트: {p(out_03)}   ← 대상 큐 외 다른 큐는 이 파일에서 그대로 유지한다.
+
+## 작업 — {cue_filter} 단일 큐 프롬프트 재생성{note_block}
+**01_분석.md·02_큐시트.md는 절대 수정하지 말 것.**
+03_프롬프트.md에서 `{cue_filter}` 블록만 아래 포맷으로 교체한다. 나머지 큐 블록은 손대지 않는다.
+
+{_variant_format(n)}
+
+교체 완료 후 04_QA.md에서 `{cue_filter}` 행만 갱신한다(다른 행 유지).
+
+## 종료
+저장 후 마지막 줄에 정확히 `SPOT_DONE EP{n} cues=1` 한 줄만 출력하고 끝낸다.
 """
 
     if mode == "prompts":

@@ -116,6 +116,52 @@ main { flex: 1 1 auto; display: grid; grid-template-columns: 190px 1fr 460px; mi
 .copy.ok { background: #2bb673; color: #fff; border-color: #2bb673; }
 .empty { padding: 16px 12px 6px; color: #8a93a0; font-size: 13px; }
 
+/* 드래그 핸들 */
+.drag-handle {
+  display: inline-block; width: 5px; height: 0.9em;
+  cursor: ew-resize; vertical-align: middle;
+  background: rgba(0,0,0,.28); border-radius: 2px;
+  opacity: 0; transition: opacity .15s; user-select: none; flex-shrink: 0;
+}
+.drag-handle.drag-start { margin-right: 2px; }
+.drag-handle.drag-end   { margin-left: 2px; }
+.band:hover .drag-handle,
+.band.sel .drag-handle  { opacity: 1; }
+
+/* 재사용 뱃지 */
+.badge.reuse { background: #e8f5e9; color: #2e7d32; font-weight: 700; }
+.reuse-info {
+  font-size: 12px; color: #5a6b5a; background: #f1f8f1;
+  border-radius: 6px; padding: 8px 10px; margin: 6px 0; line-height: 1.5;
+}
+
+/* 감독 코멘트 */
+.comment-wrap { margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px; }
+.comment-toggle {
+  font-size: 11px; font-weight: 600; color: #5a626f;
+  background: none; border: none; cursor: pointer; padding: 2px 0;
+}
+.comment-toggle:hover { color: #2d6cdf; }
+.comment-body { margin-top: 5px; }
+.comment-ta {
+  width: 100%; font-size: 12px; font-family: "Malgun Gothic", sans-serif;
+  border: 1px solid #d7dbe0; border-radius: 6px; padding: 6px 8px;
+  resize: vertical; line-height: 1.5; color: #1d2127; background: #fafbfc;
+}
+.comment-ta:focus { outline: none; border-color: #2d6cdf; }
+.comment-btns { display: flex; gap: 6px; margin-top: 5px; }
+.comment-save {
+  font-size: 11px; font-weight: 700; padding: 4px 10px; cursor: pointer;
+  border-radius: 5px; border: 1px solid #cfd5dd; background: #fff; color: #2d6cdf;
+}
+.comment-save:hover { background: #2d6cdf; color: #fff; }
+.comment-regen {
+  font-size: 11px; font-weight: 700; padding: 4px 10px; cursor: pointer;
+  border-radius: 5px; border: 1px solid #e6a23c; background: #fff; color: #c87d24;
+}
+.comment-regen:hover { background: #e6a23c; color: #fff; }
+.comment-regen:disabled { background: #f5e6cc; color: #b8956a; cursor: default; }
+
 /* 자동 스팟팅 */
 .spotbtn {
   margin: 4px 12px; padding: 10px 14px; font-size: 14px; font-weight: 700;

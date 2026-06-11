@@ -6,11 +6,15 @@ Cue Board 로컬 서버 — 표준 라이브러리만(의존성 0).
         python server.py 8800       (포트 지정)
 브라우저: http://127.0.0.1:8765/
 
-API (v0.1 — 두뇌 호출 없음, 읽기 전용):
-  GET /api/projects            → 작품 목록
-  GET /api/episodes?p=<작품>   → 화 목록 + 진행상태
-  GET /api/episode?p=<작품>&n=<번호>
-                               → 대본 원문 + 큐 카드(색 띠 char offset 포함)
+API:
+  GET  /api/projects            → 작품 목록
+  GET  /api/episodes?p=<작품>   → 화 목록 + 진행상태
+  GET  /api/episode?p=<작품>&n=<번호>
+                                → 대본 원문 + 큐 카드(색 띠 char offset 포함)
+  POST /api/spot                → 파이프라인 실행 (mode: full|prompts|single_cue,
+                                   cue_filter: CUE_ID, note: 감독코멘트)
+  POST /api/select              → selection.json selected/kept 저장
+  POST /api/cue-meta            → selection.json range_override/comment 저장
 정적: /  → static/index.html, 그 외 → static/<path>
 """
 import json
@@ -59,19 +63,21 @@ def _running_for(project, n):
     return None
 
 
-def start_spot_job(project, n, mode="full"):
+def start_spot_job(project, n, mode="full", cue_filter=None, note=None):
     """잡 등록 + 워커 스레드 기동. (job_id, error) 반환."""
     if CLAUDE_BIN is None:
         return None, "claude 실행파일을 찾을 수 없음(PATH 확인)"
-    if mode not in ("full", "prompts"):
+    if mode not in ("full", "prompts", "single_cue"):
         return None, f"알 수 없는 mode: {mode}"
     ep = cueparse._ep_dir(WORK_ROOT, project, n)
     if ep is None:
         return None, f"{project} {n}화 폴더 없음"
     if not (ep / "00_대본raw.txt").exists():
         return None, f"{n}화 대본(00_대본raw.txt) 없음 — 스팟팅 불가"
-    if mode == "prompts" and not (ep / "02_큐시트.md").exists():
-        return None, f"{n}화 큐시트(02_큐시트.md) 없음 — prompts 재생성 불가(full로 실행)"
+    if mode in ("prompts", "single_cue") and not (ep / "02_큐시트.md").exists():
+        return None, f"{n}화 큐시트(02_큐시트.md) 없음 — full 모드로 실행하세요"
+    if mode == "single_cue" and not cue_filter:
+        return None, "single_cue 모드는 cue_filter(CUE_ID) 필요"
     dup = _running_for(project, n)
     if dup:
         return dup, None                      # 중복 시작 방지: 기존 잡 반환
@@ -80,17 +86,23 @@ def start_spot_job(project, n, mode="full"):
     log_path = ep / "_spot_log.txt"
     with JOBS_LOCK:
         JOBS[jid] = {
-            "id": jid, "project": project, "n": n, "mode": mode, "status": "queued",
+            "id": jid, "project": project, "n": n, "mode": mode,
+            "cue_filter": cue_filter, "status": "queued",
             "started": time.time(), "ended": None, "returncode": None,
             "log": str(log_path), "tail": "",
         }
-    t = threading.Thread(target=_run_spot, args=(jid, project, n, ep, log_path, mode), daemon=True)
+    t = threading.Thread(
+        target=_run_spot,
+        args=(jid, project, n, ep, log_path, mode, cue_filter, note),
+        daemon=True,
+    )
     t.start()
     return jid, None
 
 
-def _run_spot(jid, project, n, ep, log_path, mode="full"):
-    prompt = spot_prompt(project, n, ep, WORK_ROOT, PROJ_ROOT, mode=mode)
+def _run_spot(jid, project, n, ep, log_path, mode="full", cue_filter=None, note=None):
+    prompt = spot_prompt(project, n, ep, WORK_ROOT, PROJ_ROOT,
+                         mode=mode, cue_filter=cue_filter, note=note)
     cmd = [
         CLAUDE_BIN, "-p",
         "--permission-mode", PERMISSION_MODE,
@@ -231,10 +243,10 @@ class Handler(BaseHTTPRequestHandler):
 
         self._err("unknown api", 404)
 
-    # ---- POST: 자동 스팟팅 시작 / 선택·킵 저장 ----
+    # ---- POST: 자동 스팟팅 시작 / 선택·킵·코멘트 저장 ----
     def do_POST(self):
         u = urlparse(self.path)
-        if u.path not in ("/api/spot", "/api/select"):
+        if u.path not in ("/api/spot", "/api/select", "/api/cue-meta"):
             self._err("unknown api", 404)
             return
         try:
@@ -256,14 +268,35 @@ class Handler(BaseHTTPRequestHandler):
 
         if u.path == "/api/spot":
             mode = payload.get("mode") or "full"
-            jid, err = start_spot_job(project, n, mode=mode)
+            cue_filter = payload.get("cue_filter")   # single_cue 모드용
+            note = payload.get("note")               # 감독 코멘트
+            jid, err = start_spot_job(project, n, mode=mode,
+                                      cue_filter=cue_filter, note=note)
             if err:
                 self._err(err)
                 return
-            self._json({"job_id": jid, "project": project, "n": n, "mode": mode})
+            self._json({"job_id": jid, "project": project, "n": n,
+                        "mode": mode, "cue_filter": cue_filter})
             return
 
-        # /api/select — selection.json 머지 저장
+        # /api/select — selection.json selected/kept 머지 저장
+        if u.path == "/api/select":
+            cid = payload.get("cue")
+            if not cid:
+                self._err("cue(CUE_ID) 필요")
+                return
+            ep = cueparse._ep_dir(WORK_ROOT, project, n)
+            if ep is None:
+                self._err(f"{project} {n}화 폴더 없음", 404)
+                return
+            SENT = "__keep__"
+            selected = payload.get("selected", SENT)
+            kept = payload.get("kept", SENT)
+            data = cueparse.save_selection(ep, cid, selected=selected, kept=kept)
+            self._json({"ok": True, "cue": cid, "selection": data.get(cid, {})})
+            return
+
+        # /api/cue-meta — range_override / comment 저장
         cid = payload.get("cue")
         if not cid:
             self._err("cue(CUE_ID) 필요")
@@ -273,9 +306,11 @@ class Handler(BaseHTTPRequestHandler):
             self._err(f"{project} {n}화 폴더 없음", 404)
             return
         SENT = "__keep__"
-        selected = payload.get("selected", SENT)   # int|null|미제공
-        kept = payload.get("kept", SENT)           # list|미제공
-        data = cueparse.save_selection(ep, cid, selected=selected, kept=kept)
+        range_override = payload.get("range_override", SENT)
+        comment = payload.get("comment", SENT)
+        data = cueparse.save_selection(ep, cid,
+                                       range_override=range_override,
+                                       comment=comment)
         self._json({"ok": True, "cue": cid, "selection": data.get(cid, {})})
 
     def log_message(self, fmt, *args):       # 조용한 로그(요청 1줄)

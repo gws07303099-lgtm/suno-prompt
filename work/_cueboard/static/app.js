@@ -8,6 +8,7 @@ const PALETTE = [
 const color = (i) => PALETTE[i % PALETTE.length];
 
 let CUR = { project: null, n: null, data: null };
+let DRAG = null; // {c, edge, newStart, newEnd}
 
 const $ = (sel) => document.querySelector(sel);
 const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
@@ -66,7 +67,6 @@ function renderScript(data) {
   box.innerHTML = "";
   const text = data.script;
   const cues = [...data.cues].sort((a, b) => a.char_start - b.char_start);
-  // 인덱스(색) 매핑 — 카드 순서와 동일하게 유지
   const idxOf = {};
   data.cues.forEach((c, i) => (idxOf[c.id] = i));
 
@@ -77,10 +77,24 @@ function renderScript(data) {
     const span = el("span", "band");
     span.style.background = color(i);
     span.dataset.cue = c.id;
+
+    // 드래그 핸들 (시작)
+    const hs = el("span", "drag-handle drag-start");
+    hs.title = "시작점 드래그";
+    hs.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); startDrag(c, "start"); };
+    span.appendChild(hs);
+
     const label = el("span", "band-label");
-    label.textContent = c.id.replace(/^EP\d+_/, "");   // Q1, Q2…
+    label.textContent = c.id.replace(/^EP\d+_/, "");
     span.appendChild(label);
     span.appendChild(document.createTextNode(text.slice(c.char_start, c.char_end)));
+
+    // 드래그 핸들 (끝)
+    const he = el("span", "drag-handle drag-end");
+    he.title = "끝점 드래그";
+    he.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); startDrag(c, "end"); };
+    span.appendChild(he);
+
     span.onclick = () => selectCue(c.id, "band");
     box.appendChild(span);
     prev = c.char_end;
@@ -144,10 +158,27 @@ function buildCard(c, i) {
   io.textContent = `IN ${c.in_quote ? `“${c.in_quote}”` : "—"}  ▸  OUT ${c.out_quote ? `“${c.out_quote}”` : "—"}`;
   card.appendChild(io);
 
+  // 재사용 큐 표시
+  if (c.reuse_type) {
+    const rb = el("span", "badge reuse");
+    rb.textContent = `${c.reuse_type} ← ${c.reuse_cid}`;
+    head.appendChild(rb);
+  }
+
+  if (c.reuse_type === "재사용" && !vars.length) {
+    const re = el("div", "reuse-info");
+    re.textContent = `원본 프롬프트: ${c.reuse_cid} — Cue Board에서 원본 화를 열어 확인`;
+    card.appendChild(re);
+    card.appendChild(buildCommentSection(c));
+    card.onclick = (ev) => { if (!ev.target.closest("button,textarea")) selectCue(c.id, "card"); };
+    return card;
+  }
+
   if (!vars.length) {
     const e = el("div", "empty"); e.textContent = "이 큐는 아직 프롬프트가 없습니다.";
     card.appendChild(e);
-    card.onclick = (ev) => { if (!ev.target.closest("button")) selectCue(c.id, "card"); };
+    card.appendChild(buildCommentSection(c));
+    card.onclick = (ev) => { if (!ev.target.closest("button,textarea")) selectCue(c.id, "card"); };
     return card;
   }
 
@@ -195,8 +226,52 @@ function buildCard(c, i) {
   act.append(selBtn, keepBtn);
   card.appendChild(act);
 
-  card.onclick = (e) => { if (!e.target.closest("button")) selectCue(c.id, "card"); };
+  card.appendChild(buildCommentSection(c));
+
+  card.onclick = (e) => { if (!e.target.closest("button,textarea")) selectCue(c.id, "card"); };
   return card;
+}
+
+function buildCommentSection(c) {
+  const wrap = el("div", "comment-wrap");
+  const toggle = el("button", "comment-toggle");
+  toggle.textContent = c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 추가 ▸";
+  const body = el("div", "comment-body");
+  body.style.display = c.comment ? "block" : "none";
+  toggle.onclick = (e) => {
+    e.stopPropagation();
+    const open = body.style.display !== "none";
+    body.style.display = open ? "none" : "block";
+    toggle.textContent = (!open) ? "💬 감독 코멘트 ▾" : (c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 추가 ▸");
+  };
+  const ta = el("textarea", "comment-ta");
+  ta.placeholder = "수정 지시, 분위기 메모 등 자유롭게…";
+  ta.value = c.comment || "";
+  ta.rows = 3;
+  ta.onclick = (e) => e.stopPropagation();
+  const btns = el("div", "comment-btns");
+  const saveBtn = el("button", "comment-save");
+  saveBtn.textContent = "저장";
+  saveBtn.onclick = async (e) => {
+    e.stopPropagation();
+    await postMeta(c.id, { comment: ta.value.trim() || null });
+    c.comment = ta.value.trim() || null;
+    toggle.textContent = c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 추가 ▸";
+    saveBtn.textContent = "저장됨 ✓"; setTimeout(() => { saveBtn.textContent = "저장"; }, 1200);
+  };
+  const regenBtn = el("button", "comment-regen");
+  regenBtn.textContent = "재생성 ↺";
+  regenBtn.title = "이 큐의 프롬프트를 코멘트 반영해 재생성";
+  regenBtn.onclick = async (e) => {
+    e.stopPropagation();
+    const note = ta.value.trim();
+    regenBtn.disabled = true; regenBtn.textContent = "재생성 중…";
+    await startSingleSpot(c.id, note || null, regenBtn);
+  };
+  btns.append(saveBtn, regenBtn);
+  body.append(ta, btns);
+  wrap.append(toggle, body);
+  return wrap;
 }
 
 async function postSelect(cid, changes) {
@@ -214,6 +289,56 @@ async function postSelect(cid, changes) {
     }
     replaceCardById(cid);
   } catch (e) { alert("선택 저장 오류: " + e.message); }
+}
+
+async function postMeta(cid, changes) {
+  try {
+    const r = await fetch("/api/cue-meta", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: CUR.project, n: CUR.n, cue: cid, ...changes }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "저장 실패");
+    return j;
+  } catch (e) { alert("메타 저장 오류: " + e.message); }
+}
+
+async function startSingleSpot(cid, note, btn) {
+  try {
+    const r = await fetch("/api/spot", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: CUR.project, n: CUR.n, mode: "single_cue",
+                             cue_filter: cid, note }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "시작 실패");
+    // 잡 완료 폴링 후 해당 카드만 갱신
+    const tick = async () => {
+      let v;
+      try { v = await api(`/api/job?id=${j.job_id}`); }
+      catch { setTimeout(tick, 3000); return; }
+      if (v.status === "done") {
+        const fresh = await api(`/api/episode?p=${encodeURIComponent(CUR.project)}&n=${CUR.n}`);
+        const nc = fresh.cues.find((x) => x.id === cid);
+        if (nc) {
+          const idx = CUR.data.cues.findIndex((x) => x.id === cid);
+          if (idx >= 0) CUR.data.cues[idx] = nc;
+          replaceCardById(cid);
+        }
+        if (btn) { btn.disabled = false; btn.textContent = "재생성 ↺"; }
+        return;
+      }
+      if (v.status === "error") {
+        if (btn) { btn.disabled = false; btn.textContent = "실패 — 재시도"; }
+        return;
+      }
+      setTimeout(tick, 3000);
+    };
+    tick();
+  } catch (e) {
+    alert("재생성 오류: " + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "재생성 ↺"; }
+  }
 }
 
 function replaceCardById(cid) {
@@ -283,6 +408,74 @@ function pollJob(jobId, n, btn, log) {
     setTimeout(tick, 2500);
   };
   tick();
+}
+
+// ---------------------------------------------------------------- 드래그 범위 조정
+function charOffsetFromPoint(x, y) {
+  const range = document.caretRangeFromPoint
+    ? document.caretRangeFromPoint(x, y)
+    : (() => {
+        if (!document.caretPositionFromPoint) return null;
+        const pos = document.caretPositionFromPoint(x, y);
+        if (!pos) return null;
+        const r = document.createRange();
+        r.setStart(pos.offsetNode, pos.offset);
+        return r;
+      })();
+  if (!range) return -1;
+  const box = document.getElementById("script");
+  if (!box || !box.contains(range.startContainer)) return -1;
+  let total = 0;
+  let found = false;
+  function walk(node) {
+    if (found) return;
+    if (node.nodeType === 3) { // TEXT_NODE
+      if (node === range.startContainer) { total += range.startOffset; found = true; return; }
+      total += node.textContent.length;
+    } else if (node.nodeType === 1) { // ELEMENT_NODE
+      const cls = node.className || "";
+      if (cls.includes("band-label") || cls.includes("drag-handle")) return;
+      for (const child of node.childNodes) walk(child);
+    }
+  }
+  walk(box);
+  return found ? total : -1;
+}
+
+function startDrag(c, edge) {
+  DRAG = { c, edge, newStart: c.char_start, newEnd: c.char_end };
+  document.body.style.userSelect = "none";
+  document.body.style.cursor = "ew-resize";
+  document.addEventListener("mousemove", onDragMove);
+  document.addEventListener("mouseup", onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!DRAG) return;
+  const offset = charOffsetFromPoint(e.clientX, e.clientY);
+  if (offset < 0) return;
+  if (DRAG.edge === "start") {
+    DRAG.newStart = Math.max(0, Math.min(offset, DRAG.c.char_end - 1));
+  } else {
+    DRAG.newEnd = Math.max(DRAG.c.char_start + 1, offset);
+  }
+}
+
+function onDragEnd() {
+  document.removeEventListener("mousemove", onDragMove);
+  document.removeEventListener("mouseup", onDragEnd);
+  document.body.style.userSelect = "";
+  document.body.style.cursor = "";
+  if (!DRAG) return;
+  const { c, newStart, newEnd } = DRAG;
+  DRAG = null;
+  if (newStart !== c.char_start || newEnd !== c.char_end) {
+    c.char_start = newStart;
+    c.char_end = newEnd;
+    c.approx = false;
+    renderScript(CUR.data);
+    postMeta(c.id, { range_override: { start: newStart, end: newEnd } });
+  }
 }
 
 // ---------------------------------------------------------------- 양방향 선택
