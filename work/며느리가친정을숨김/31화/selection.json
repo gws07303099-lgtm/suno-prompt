@@ -2,5 +2,29 @@
   "EP31_Q3": {
     "selected": 0,
     "kept": []
+  },
+  "EP31_Q2": {
+    "selected": null,
+    "kept": [],
+    "range_override": {
+      "start": 160,
+      "end": 445
+    }
+  },
+  "EP31_Q5": {
+    "selected": null,
+    "kept": [],
+    "range_override": {
+      "start": 1079,
+      "end": 1215
+    }
+  },
+  "EP31_Q4": {
+    "selected": null,
+    "kept": [],
+    "range_override": {
+      "start": 848,
+      "end": 1021
+    }
   }
 }
