@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cue Board — 진행 현황</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #eef0f3; color: #1d2127;
+    font-family: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 60px; }
+
+  header {
+    background: #1d2127; color: #fff; padding: 34px 20px 28px;
+  }
+  header .wrap { padding-bottom: 0; }
+  h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: .5px; }
+  header .sub { color: #9aa3b0; font-size: 14px; margin: 0; }
+  .pill {
+    display: inline-block; margin-top: 14px; margin-right: 6px; padding: 4px 11px;
+    background: #2a2f37; border-radius: 20px; font-size: 12px; color: #c7ccd4;
+  }
+  .pill b { color: #6fcf97; }
+
+  section {
+    background: #fff; border: 1px solid #e1e5ea; border-radius: 12px;
+    padding: 20px 22px; margin-top: 22px; box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  }
+  h2 {
+    font-size: 17px; margin: 0 0 14px; padding-left: 11px;
+    border-left: 4px solid #2d6cdf;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #eceef1; vertical-align: top; }
+  th { background: #f7f8fa; color: #5a626f; font-size: 12px; font-weight: 700; }
+  tr:last-child td { border-bottom: 0; }
+
+  .badge { display: inline-block; padding: 1px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+  .ok   { background: #eafaf0; color: #2bb673; }
+  .ver  { font-weight: 800; color: #2d6cdf; white-space: nowrap; }
+  .next td { background: #fff7ec; }
+  .next .arrow { color: #e6a23c; font-weight: 800; }
+
+  pre {
+    background: #14171c; color: #cfe3d0; border-radius: 8px; padding: 14px 16px;
+    font-family: "Consolas", "D2Coding", monospace; font-size: 12.5px;
+    line-height: 1.55; overflow-x: auto; margin: 0;
+  }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat {
+    background: #f7f8fa; border-radius: 10px; padding: 14px 16px; border: 1px solid #eceef1;
+  }
+  .stat .num { font-size: 24px; font-weight: 800; color: #1d2127; }
+  .stat .lab { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .stat .dot { color: #2bb673; }
+
+  .note { font-size: 12.5px; color: #8a93a0; }
+  footer { text-align: center; color: #9aa3b0; font-size: 12px; margin-top: 30px; }
+  code { background: #f1f2f4; padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+  a { color: #2d6cdf; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>🎬 Cue Board — 진행 현황</h1>
+    <p class="sub">숏폼드라마 대본 BGM 큐 추출·스팟팅 로컬 웹앱 · 작성 2026-06-10</p>
+    <span class="pill">백엔드 <b>Python 표준 라이브러리만</b> (의존성 0)</span>
+    <span class="pill">두뇌 <b>헤들리스 claude -p</b> (구독 인증·무과금)</span>
+    <span class="pill">SUNO <b>v5.5 Advanced · A안</b></span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <h2>한눈에</h2>
+    <p style="margin:0 0 14px">
+      대본을 띄워놓고 <b>자동 스팟팅된 BGM 큐를 카드로 보고</b>, 각 BGM이 덮는 대본 구간을
+      본문에 <b>색 띠</b>로 표시하며, 큐마다 <b>3개 변형(A/B/C)</b> 중 사용본을 선택해
+      SUNO용 프롬프트를 복사·관리하는 도구.
+    </p>
+    <div class="grid">
+      <div class="stat"><div class="num">3<span class="lab" style="display:inline; font-size:13px"> 버전</span></div><div class="lab">v0.1 → v0.3 완성</div></div>
+      <div class="stat"><div class="num">2<span class="dot">●</span></div><div class="lab">큐시트+3변형 완료 화 (30·31)</div></div>
+      <div class="stat"><div class="num">2</div><div class="lab">git 커밋 (초기 → v0.3)</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>버전별 진척</h2>
+    <table>
+      <tr><th style="width:88px">버전</th><th>핵심 기능</th><th style="width:70px">상태</th></tr>
+      <tr>
+        <td class="ver">v0.1<br><span class="note">뷰어</span></td>
+        <td>3분할 화면(화 목록 · 대본+<b>색 띠</b> · 큐 카드). Write/Style 복사, 띠↔카드 양방향 클릭.</td>
+        <td><span class="badge ok">완료</span></td>
+      </tr>
+      <tr>
+        <td class="ver">v0.2<br><span class="note">자동화</span></td>
+        <td><b>결정적 색 띠</b>(IN/OUT 앵커 = 대본 원문 정확 매핑) + <b>자동 스팟팅</b>(버튼 → 분석·큐시트·프롬프트·QA 4파일 자동 생성, 약 6.7분/화).</td>
+        <td><span class="badge ok">완료</span></td>
+      </tr>
+      <tr>
+        <td class="ver">v0.3<br><span class="note">변형</span></td>
+        <td>큐당 <b>3변형 A/B/C</b> 생성 + 탭 비교 + <b>선택</b>(최종 1개)·<b>킵</b>(후보 여럿), <code>selection.json</code> 영속.</td>
+        <td><span class="badge ok">완료</span></td>
+      </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>구조 맵</h2>
+    <pre>work/_cueboard/
+├─ cueparse.py   파서 — 큐↔대본 char 매핑(앵커 우선), 변형 파싱, 선택/킵 영속
+├─ server.py     http.server — 뷰어 API + /api/spot(자동생성) + /api/select(선택저장)
+├─ spotjob.py    헤들리스 claude 오케스트레이션 프롬프트 (full / prompts 모드)
+└─ static/       index.html · app.js · style.css  (변형 탭 UI)
+
+work/&lt;작품&gt;/NN화/
+  00_대본raw · 01_분석 · 02_큐시트(앵커) · 03_프롬프트(3변형) · 04_QA · selection.json</pre>
+  </section>
+
+  <section>
+    <h2>산출물 현황</h2>
+    <table>
+      <tr><th style="width:230px">작품</th><th>진행</th></tr>
+      <tr><td><b>며느리가 친정을 숨김</b> <span class="note">(전 50화)</span></td>
+          <td>1화 · 30화 · 31화 — 큐시트(앵커) + 3변형 프롬프트 완료. 30화 변형 선택 사용 시작(Q4·Q5).</td></tr>
+      <tr><td><b>엄마의 남자를 뺏겠습니다</b></td>
+          <td>1화 완료.</td></tr>
+      <tr><td><b>Git (로컬)</b></td>
+          <td><code>9dc22ba</code> 초기 커밋 → <code>2212e8c</code> v0.3 (3변형+선택/킵).</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>앞으로의 방향 (로드맵)</h2>
+    <table>
+      <tr><th style="width:150px">우선순위</th><th>항목</th><th>내용</th></tr>
+      <tr class="next">
+        <td><span class="arrow">▶ 다음</span></td>
+        <td><b>드래그 보정</b></td>
+        <td>본문 구간을 드래그해 새 큐 생성 / 경계 수정, 특정 큐만 3변형 재생성. 자동 스팟팅 결과를 손으로 다듬는 편집 워크플로우.</td>
+      </tr>
+      <tr><td class="note">대기</td><td>선택본 내보내기</td><td>선택된 변형만 모아 SUNO용 최종본(05_최종.md) + 전체 복사.</td></tr>
+      <tr><td class="note">대기</td><td>32~40화 일괄 생산</td><td>남은 화를 큐에 넣고 순차 자동 스팟팅 — 실제 납품물 대량 확보.</td></tr>
+      <tr><td class="note">대기</td><td>v0.4 진행 대시보드</td><td>50화 상태(대본/큐/프롬프트/선택) · 완성률 · 큐별 선택 진행도 한눈에.</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    Cue Board · 로컬 서버 <code>http://127.0.0.1:8765/</code> · 이 리포트 <code>/status.html</code> · 2026-06-10
+  </footer>
+
+</div>
+</body>
+</html>
