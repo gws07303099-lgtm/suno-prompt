@@ -39,7 +39,8 @@ DEFAULT_PROJECT = "며느리가친정을숨김"
 
 CLAUDE_BIN = shutil.which("claude")     # 헤들리스 두뇌(구독 인증 재사용·무과금 API키 아님)
 PERMISSION_MODE = "acceptEdits"         # 편집만 자동수락(Bash 등 위험 도구는 막힘)
-SPOT_MODEL = "sonnet"
+SPOT_MODEL = "sonnet"                   # full·prompts 모드
+SPOT_MODEL_FAST = "haiku"              # single_cue 전용(속도 우선)
 
 # ---- 자동 스팟팅 잡 레지스트리(인메모리) ----
 JOBS = {}                               # job_id -> {project,n,status,started,ended,returncode,log}
@@ -54,11 +55,19 @@ CONTENT_TYPES = {
 
 
 # ---------------------------------------------------------------- 자동 스팟팅 잡
-def _running_for(project, n):
-    """해당 화에 대해 이미 진행 중인 잡이 있으면 job_id 반환."""
+def _running_for(project, n, mode=None, cue_filter=None):
+    """해당 화에 대해 이미 진행 중인 잡이 있으면 job_id 반환.
+    single_cue는 같은 cue_filter에 대해서만 중복 차단(full/prompts 실행 중에도 시작 가능)."""
     with JOBS_LOCK:
         for jid, j in JOBS.items():
-            if j["project"] == project and j["n"] == n and j["status"] in ("queued", "running"):
+            if j["project"] != project or j["n"] != n:
+                continue
+            if j["status"] not in ("queued", "running"):
+                continue
+            if mode == "single_cue":
+                if j["mode"] == "single_cue" and j["cue_filter"] == cue_filter:
+                    return jid
+            else:
                 return jid
     return None
 
@@ -78,7 +87,7 @@ def start_spot_job(project, n, mode="full", cue_filter=None, note=None):
         return None, f"{n}화 큐시트(02_큐시트.md) 없음 — full 모드로 실행하세요"
     if mode == "single_cue" and not cue_filter:
         return None, "single_cue 모드는 cue_filter(CUE_ID) 필요"
-    dup = _running_for(project, n)
+    dup = _running_for(project, n, mode=mode, cue_filter=cue_filter)
     if dup:
         return dup, None                      # 중복 시작 방지: 기존 잡 반환
 
@@ -103,10 +112,11 @@ def start_spot_job(project, n, mode="full", cue_filter=None, note=None):
 def _run_spot(jid, project, n, ep, log_path, mode="full", cue_filter=None, note=None):
     prompt = spot_prompt(project, n, ep, WORK_ROOT, PROJ_ROOT,
                          mode=mode, cue_filter=cue_filter, note=note)
+    model = SPOT_MODEL_FAST if mode == "single_cue" else SPOT_MODEL
     cmd = [
         CLAUDE_BIN, "-p",
         "--permission-mode", PERMISSION_MODE,
-        "--model", SPOT_MODEL,
+        "--model", model,
         "--add-dir", str(PROJ_ROOT),       # cwd(화 폴더) 밖의 바이블·스킬 읽기 허용
     ]
     with JOBS_LOCK:

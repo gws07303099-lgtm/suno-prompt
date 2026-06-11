@@ -15,7 +15,11 @@ const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.cla
 
 async function api(path) {
   const r = await fetch(path);
-  if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+  if (!r.ok) {
+    const err = new Error(((await r.json().catch(() => ({}))).error) || r.statusText);
+    err.status = r.status;
+    throw err;
+  }
   return r.json();
 }
 
@@ -249,7 +253,15 @@ function buildCommentSection(c) {
   ta.value = c.comment || "";
   ta.rows = 3;
   ta.onclick = (e) => e.stopPropagation();
-  const btns = el("div", "comment-btns");
+  const regenBtn = el("button", "comment-regen");
+  regenBtn.textContent = "재생성 ↺";
+  regenBtn.title = "이 큐의 프롬프트를 재생성(코멘트 있으면 반영)";
+  regenBtn.onclick = async (e) => {
+    e.stopPropagation();
+    const note = ta.value.trim();
+    regenBtn.disabled = true; regenBtn.textContent = "재생성 중…";
+    await startSingleSpot(c.id, note || null, regenBtn);
+  };
   const saveBtn = el("button", "comment-save");
   saveBtn.textContent = "저장";
   saveBtn.onclick = async (e) => {
@@ -259,18 +271,10 @@ function buildCommentSection(c) {
     toggle.textContent = c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 추가 ▸";
     saveBtn.textContent = "저장됨 ✓"; setTimeout(() => { saveBtn.textContent = "저장"; }, 1200);
   };
-  const regenBtn = el("button", "comment-regen");
-  regenBtn.textContent = "재생성 ↺";
-  regenBtn.title = "이 큐의 프롬프트를 코멘트 반영해 재생성";
-  regenBtn.onclick = async (e) => {
-    e.stopPropagation();
-    const note = ta.value.trim();
-    regenBtn.disabled = true; regenBtn.textContent = "재생성 중…";
-    await startSingleSpot(c.id, note || null, regenBtn);
-  };
-  btns.append(saveBtn, regenBtn);
+  const btns = el("div", "comment-btns");
+  btns.append(saveBtn);
   body.append(ta, btns);
-  wrap.append(toggle, body);
+  wrap.append(toggle, regenBtn, body);
   return wrap;
 }
 
@@ -316,14 +320,26 @@ async function startSingleSpot(cid, note, btn) {
     const tick = async () => {
       let v;
       try { v = await api(`/api/job?id=${j.job_id}`); }
-      catch { setTimeout(tick, 3000); return; }
+      catch (e) {
+        if (e.status === 404) {
+          // 서버 재시작 등으로 잡 유실 — 폴링 중단
+          if (btn) { btn.disabled = false; btn.textContent = "재생성 ↺"; }
+          return;
+        }
+        setTimeout(tick, 3000); return;
+      }
       if (v.status === "done") {
-        const fresh = await api(`/api/episode?p=${encodeURIComponent(CUR.project)}&n=${CUR.n}`);
-        const nc = fresh.cues.find((x) => x.id === cid);
-        if (nc) {
-          const idx = CUR.data.cues.findIndex((x) => x.id === cid);
-          if (idx >= 0) CUR.data.cues[idx] = nc;
-          replaceCardById(cid);
+        try {
+          const fresh = await api(`/api/episode?p=${encodeURIComponent(CUR.project)}&n=${CUR.n}`);
+          const nc = fresh.cues.find((x) => x.id === cid);
+          if (nc) {
+            const idx = CUR.data.cues.findIndex((x) => x.id === cid);
+            if (idx >= 0) CUR.data.cues[idx] = nc;
+            renderScript(CUR.data);   // 드래그 핸들 클로저 갱신
+            replaceCardById(cid);
+          }
+        } catch (fetchErr) {
+          alert("재생성 완료 — 카드 갱신 실패: " + fetchErr.message);
         }
         if (btn) { btn.disabled = false; btn.textContent = "재생성 ↺"; }
         return;
