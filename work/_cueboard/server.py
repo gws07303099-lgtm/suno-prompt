@@ -20,6 +20,7 @@ API:
 정적: /  → static/index.html, 그 외 → static/<path>
 """
 import json
+import re
 import sys
 import shutil
 import threading

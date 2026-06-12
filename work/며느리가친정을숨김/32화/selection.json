@@ -1,10 +1,18 @@
 {
-  "EP32_Q2": {
+  "EP32_Q3": {
     "selected": null,
     "kept": [],
     "range_override": {
       "start": 574,
       "end": 851
+    }
+  },
+  "EP32_Q2": {
+    "selected": null,
+    "kept": [],
+    "range_override": {
+      "start": 308,
+      "end": 530
     }
   }
 }

@@ -1,5 +1,12 @@
 {
-  "EP30_Q2": {
+  "EP30_Q6": {
+    "selected": 1,
+    "kept": [
+      0,
+      1
+    ]
+  },
+  "EP30_Q5": {
     "selected": 0,
     "kept": []
   },
@@ -7,18 +14,11 @@
     "selected": 0,
     "kept": []
   },
-  "EP30_Q5": {
-    "selected": 1,
-    "kept": [
-      0,
-      1
-    ]
-  },
   "EP30_Q3": {
     "selected": 0,
     "kept": []
   },
-  "EP30_Q1": {
+  "EP30_Q2": {
     "selected": null,
     "kept": [],
     "range_override": {
