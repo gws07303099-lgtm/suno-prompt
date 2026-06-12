@@ -17,7 +17,12 @@ from pathlib import Path
 
 def _splice_cue_block(prompts_path: Path, cue_id: str, block_path: Path) -> None:
     """03_프롬프트.md에서 cue_id 섹션을 block_path 내용으로 교체 후 block_path 삭제."""
-    new_block = block_path.read_text(encoding="utf-8").strip()
+    raw = block_path.read_text(encoding="utf-8")
+    # Claude가 _block.md에 프리앰블을 추가할 수 있으므로 ### CUE_ID 부터만 추출
+    m = re.search(rf"### {re.escape(cue_id)}[\s\S]*", raw)
+    if not m:
+        raise ValueError(f"splice: '{cue_id}' 헤더를 _block.md에서 찾지 못함")
+    new_block = m.group(0).strip()
     text = prompts_path.read_text(encoding="utf-8")
     pattern = rf"### {re.escape(cue_id)}[^\n]*\n[\s\S]*?(?=\n### |\Z)"
     result, count = re.subn(pattern, lambda m: new_block + "\n", text, count=1)
