@@ -61,6 +61,14 @@ async function loadEpisode(n) {
   const data = await api(`/api/episode?p=${encodeURIComponent(CUR.project)}&n=${n}`);
   CUR.data = data;
   CUR.activeVar = {};                    // 화 전환 시 활성 변형 상태 초기화
+  const sceneQMap = {};
+  const sceneCount = {};
+  data.cues.forEach((c) => {
+    const s = (c.scene || "_").replace(/-[a-zA-Z].*/, "");
+    sceneCount[s] = (sceneCount[s] || 0) + 1;
+    sceneQMap[c.id] = sceneCount[s];
+  });
+  CUR.sceneQMap = sceneQMap;
   $("#scripthead").textContent = `대본 — ${data.dir}`;
   renderScript(data);
   renderCards(data);
@@ -92,7 +100,8 @@ function renderScript(data) {
     span.appendChild(hs);
 
     const label = el("span", "band-label");
-    label.textContent = c.id.replace(/^EP\d+_/, "");
+    const sq = CUR.sceneQMap && CUR.sceneQMap[c.id];
+    label.textContent = sq ? "Q" + sq : c.id.replace(/^EP\d+_/, "");
     span.appendChild(label);
     span.appendChild(document.createTextNode(text.slice(c.char_start, c.char_end)));
 
@@ -158,17 +167,19 @@ function buildCard(c, i) {
   const sel = (c.selected != null) ? c.selected : null;
   const kept = c.kept || [];
 
-  // 헤더
+  // 헤더 1행: ID + 기능 배지 + del 버튼
   const head = el("div", "card-head");
-  const cid = el("span", "cid"); cid.textContent = c.id;
-  head.appendChild(cid);
-  if (c.scene) { const b = el("span", "badge scene"); b.textContent = c.scene; head.appendChild(b); }
+  const cidEl = el("span", "cid");
+  const sceneStr = c.scene ? c.scene.replace(/-[a-zA-Z].*$/, "") : null;
+  const sceneQ = (CUR.sceneQMap && CUR.sceneQMap[c.id]) || null;
+  const qLabel = sceneQ ? "Q" + sceneQ : c.id.replace(/^EP\d+_/, "");
+  cidEl.textContent = sceneStr
+    ? "EP" + CUR.n + " \u00B7 " + sceneStr + " \u00B7 " + qLabel
+    : "EP" + CUR.n + " \u00B7 " + qLabel;
+  cidEl.title = c.id;
+  head.appendChild(cidEl);
   if (c.type) { const b = el("span", "badge"); b.textContent = c.type; head.appendChild(b); }
   if (c.approx) { const b = el("span", "badge approx"); b.textContent = "근사"; head.appendChild(b); }
-  const sb = el("span", "badge sel-badge");
-  sb.textContent = sel != null ? `★선택 ${(vars[sel] && vars[sel].label) || vlabel(sel)}` : "미선택";
-  if (sel == null) sb.classList.add("none");
-  head.appendChild(sb);
   // 삭제 버튼
   const delBtn = el("button", "del-cue");
   delBtn.textContent = "삭제";
@@ -194,16 +205,23 @@ function buildCard(c, i) {
   head.appendChild(delBtn);
   card.appendChild(head);
 
+  // 헤더 2행: 상태 배지
+  const sub = el("div", "card-sub");
+  const sb = el("span", "badge sel-badge");
+  sb.textContent = sel != null ? "\u2605 " + ((vars[sel] && vars[sel].label) || vlabel(sel)) : "미선택";
+  if (sel == null) sb.classList.add("none");
+  sub.appendChild(sb);
+  card.appendChild(sub);
+
   if (c.function) { const fn = el("div", "fn"); fn.textContent = c.function; card.appendChild(fn); }
   const io = el("div", "inout");
   io.textContent = `IN ${c.in_quote ? `“${c.in_quote}”` : "—"}  ▸  OUT ${c.out_quote ? `“${c.out_quote}”` : "—"}`;
   card.appendChild(io);
 
-  // 재사용 큐 표시
   if (c.reuse_type) {
     const rb = el("span", "badge reuse");
-    rb.textContent = `${c.reuse_type} ← ${c.reuse_cid}`;
-    head.appendChild(rb);
+    rb.textContent = c.reuse_type + " \u2190 " + c.reuse_cid;
+    sub.appendChild(rb);
   }
 
   if (c.reuse_type === "재사용" && !vars.length) {
@@ -275,21 +293,25 @@ function buildCard(c, i) {
 
 function buildCommentSection(c) {
   const wrap = el("div", "comment-wrap");
+  const controls = el("div", "comment-controls");
   const toggle = el("button", "comment-toggle");
-  toggle.textContent = c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 추가 ▸";
+  toggle.textContent = c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 ▸";
   const body = el("div", "comment-body");
   body.style.display = c.comment ? "block" : "none";
-  toggle.onclick = (e) => {
-    e.stopPropagation();
-    const open = body.style.display !== "none";
-    body.style.display = open ? "none" : "block";
-    toggle.textContent = (!open) ? "💬 감독 코멘트 ▾" : (c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 추가 ▸");
-  };
   const ta = el("textarea", "comment-ta");
   ta.placeholder = "수정 지시, 분위기 메모 등 자유롭게…";
   ta.value = c.comment || "";
   ta.rows = 3;
   ta.onclick = (e) => e.stopPropagation();
+  toggle.onclick = (e) => {
+    e.stopPropagation();
+    const open = body.style.display !== "none";
+    body.style.display = open ? "none" : "block";
+    toggle.textContent = open
+      ? (c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 ▸")
+      : "💬 감독 코멘트 ▾";
+    if (!open) ta.focus();
+  };
   const regenBtn = el("button", "comment-regen");
   regenBtn.textContent = "재생성 ↺";
   regenBtn.title = "이 큐의 프롬프트를 재생성(코멘트 있으면 반영)";
@@ -305,13 +327,14 @@ function buildCommentSection(c) {
     e.stopPropagation();
     await postMeta(c.id, { comment: ta.value.trim() || null });
     c.comment = ta.value.trim() || null;
-    toggle.textContent = c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 추가 ▸";
+    toggle.textContent = c.comment ? "💬 감독 코멘트 ▾" : "💬 코멘트 ▸";
     saveBtn.textContent = "저장됨 ✓"; setTimeout(() => { saveBtn.textContent = "저장"; }, 1200);
   };
   const btns = el("div", "comment-btns");
   btns.append(saveBtn);
   body.append(ta, btns);
-  wrap.append(toggle, regenBtn, body);
+  controls.append(toggle, regenBtn);
+  wrap.append(controls, body);
   return wrap;
 }
 

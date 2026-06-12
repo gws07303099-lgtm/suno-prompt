@@ -28,9 +28,9 @@ main { flex: 1 1 auto; display: grid; grid-template-columns: 190px 1fr 460px; mi
   padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
   display: flex; align-items: center; gap: 8px;
 }
-#episodes li:hover { background: #eef2f7; }
+#episodes li:hover { background: #e8eef7; }
 #episodes li.active { background: #2d6cdf; color: #fff; }
-.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; background: #cfd5dd; }
+.dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; background: #cfd5dd; }
 .dot.done { background: #2bb673; }
 .dot.script { background: #e6a23c; }
 #episodes li.active .dot { outline: 1px solid #fff; }
@@ -59,19 +59,22 @@ main { flex: 1 1 auto; display: grid; grid-template-columns: 190px 1fr 460px; mi
 .cards { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
 .card {
   background: #fff; border: 1px solid #e1e5ea; border-left-width: 5px;
-  border-radius: 8px; padding: 10px 12px; scroll-margin-top: 44px;
+  border-radius: 10px; padding: 10px 12px; scroll-margin-top: 44px;
+  transition: box-shadow .15s;
 }
+.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 .card.sel { box-shadow: 0 0 0 2px #2d6cdf; }
-.card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.cid { font-weight: 800; font-size: 13px; }
+.card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.card-sub { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; flex-wrap: wrap; }
+.cid { font-weight: 800; font-size: 13px; letter-spacing: -.2px; }
 .badge {
   font-size: 10px; padding: 1px 6px; border-radius: 10px;
   background: #eef2f7; color: #5a626f;
 }
 .badge.approx { background: #fdf0e3; color: #c87d24; }
 .badge.scene { background: #eaf1fd; color: #2d6cdf; }
-.card .fn { font-size: 12px; color: #444; margin-bottom: 6px; }
-.card .inout { font-size: 11px; color: #6b7280; margin-bottom: 8px; }
+.card .fn { font-size: 12.5px; color: #374151; margin-bottom: 5px; }
+.card .inout { font-size: 11px; color: #6b7280; margin-bottom: 8px; font-style: italic; }
 
 /* 선택 배지 */
 .badge.sel-badge { background: #eafaf0; color: #2bb673; font-weight: 700; }
@@ -137,6 +140,7 @@ main { flex: 1 1 auto; display: grid; grid-template-columns: 190px 1fr 460px; mi
 
 /* 감독 코멘트 */
 .comment-wrap { margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px; }
+.comment-controls { display: flex; align-items: center; gap: 8px; }
 .comment-toggle {
   font-size: 11px; font-weight: 600; color: #5a626f;
   background: none; border: none; cursor: pointer; padding: 2px 0;
@@ -162,13 +166,15 @@ main { flex: 1 1 auto; display: grid; grid-template-columns: 190px 1fr 460px; mi
 .comment-regen:hover { background: #e6a23c; color: #fff; }
 .comment-regen:disabled { background: #f5e6cc; color: #b8956a; cursor: default; }
 
-/* 큐 삭제 버튼 */
+/* 큐 삭제 버튼 — hover 시만 표시 */
 .del-cue {
   margin-left: auto; font-size: 10px; padding: 2px 7px; cursor: pointer;
   border-radius: 5px; border: 1px solid #e57373; background: #fff; color: #e57373;
+  opacity: 0; transition: opacity .15s;
 }
+.card:hover .del-cue { opacity: 1; }
 .del-cue:hover { background: #e57373; color: #fff; }
-.del-cue:disabled { opacity: .5; cursor: default; }
+.del-cue:disabled { opacity: .4; cursor: default; }
 
 /* 신규 큐 추가 플로팅 버튼 */
 .add-cue-float {
