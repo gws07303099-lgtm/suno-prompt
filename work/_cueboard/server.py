@@ -29,7 +29,7 @@ from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cueparse
-from spotjob import spot_prompt
+from spotjob import spot_prompt, _splice_cue_block
 
 HERE = Path(__file__).resolve().parent
 STATIC = HERE / "static"
@@ -85,6 +85,8 @@ def start_spot_job(project, n, mode="full", cue_filter=None, note=None):
         return None, f"{n}화 대본(00_대본raw.txt) 없음 — 스팟팅 불가"
     if mode in ("prompts", "single_cue") and not (ep / "02_큐시트.md").exists():
         return None, f"{n}화 큐시트(02_큐시트.md) 없음 — full 모드로 실행하세요"
+    if mode == "single_cue" and not (ep / "03_프롬프트.md").exists():
+        return None, f"{n}화 프롬프트(03_프롬프트.md) 없음 — full 모드로 실행하세요"
     if mode == "single_cue" and not cue_filter:
         return None, "single_cue 모드는 cue_filter(CUE_ID) 필요"
     dup = _running_for(project, n, mode=mode, cue_filter=cue_filter)
@@ -135,6 +137,16 @@ def _run_spot(jid, project, n, ep, log_path, mode="full", cue_filter=None, note=
             tail = "\n".join(log_path.read_text(encoding="utf-8").splitlines()[-12:])
         except Exception:
             pass
+        # single_cue: Claude가 _block.md에 새 블록 저장 → 서버가 splice
+        if mode == "single_cue" and rc == 0:
+            block_path = ep / "_block.md"
+            try:
+                _splice_cue_block(ep / "03_프롬프트.md", cue_filter, block_path)
+            except Exception as e:
+                with JOBS_LOCK:
+                    JOBS[jid].update(status="error", ended=time.time(),
+                                     returncode=rc, tail=f"splice 실패: {e}")
+                return
         # done 판정: prompts 모드는 03만, full은 02+03 존재 확인
         ok = (rc == 0) and (ep / "03_프롬프트.md").exists()
         if mode == "full":
