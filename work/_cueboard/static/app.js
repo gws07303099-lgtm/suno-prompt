@@ -8,7 +8,8 @@ const PALETTE = [
 const color = (i) => PALETTE[i % PALETTE.length];
 
 let CUR = { project: null, n: null, data: null };
-let DRAG = null; // {c, edge, newStart, newEnd}
+let DRAG = null;         // {c, edge, newStart, newEnd} — range_override 드래그
+let NEW_CUE_DRAG = null; // {startOffset, endOffset} — 신규 큐 추가 드래그
 
 const $ = (sel) => document.querySelector(sel);
 const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
@@ -69,6 +70,8 @@ async function loadEpisode(n) {
 function renderScript(data) {
   const box = $("#script");
   box.innerHTML = "";
+  // 기존 add-cue 플로팅 버튼 제거
+  document.getElementById("add-cue-float")?.remove();
   const text = data.script;
   const cues = [...data.cues].sort((a, b) => a.char_start - b.char_start);
   const idxOf = {};
@@ -104,6 +107,17 @@ function renderScript(data) {
     prev = c.char_end;
   });
   if (prev < text.length) box.appendChild(document.createTextNode(text.slice(prev)));
+
+  // 빈 구간 드래그 → 신규 큐 추가
+  box.onmousedown = (e) => {
+    if (e.button !== 0 || e.target.closest(".band")) return;
+    const offset = charOffsetFromPoint(e.clientX, e.clientY);
+    if (offset < 0) return;
+    e.preventDefault();
+    NEW_CUE_DRAG = { startOffset: offset, endOffset: offset };
+    document.addEventListener("mousemove", onNewCueDragMove);
+    document.addEventListener("mouseup", onNewCueDragEnd);
+  };
 }
 
 // ---------------------------------------------------------------- 큐 카드
@@ -155,6 +169,29 @@ function buildCard(c, i) {
   sb.textContent = sel != null ? `★선택 ${(vars[sel] && vars[sel].label) || vlabel(sel)}` : "미선택";
   if (sel == null) sb.classList.add("none");
   head.appendChild(sb);
+  // 삭제 버튼
+  const delBtn = el("button", "del-cue");
+  delBtn.textContent = "삭제";
+  delBtn.title = `${c.id} 삭제 후 재번호`;
+  delBtn.onclick = async (e) => {
+    e.stopPropagation();
+    if (!confirm(`${c.id}를 삭제합니다.\n뒤 큐들이 재번호됩니다. 계속하시겠습니까?`)) return;
+    delBtn.disabled = true; delBtn.textContent = "삭제 중…";
+    try {
+      const r = await fetch("/api/cue", {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: CUR.project, n: CUR.n, cue: c.id }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "삭제 실패");
+      await loadEpisodes(CUR.project);
+      await loadEpisode(CUR.n);
+    } catch (err) {
+      alert("삭제 오류: " + err.message);
+      delBtn.disabled = false; delBtn.textContent = "삭제";
+    }
+  };
+  head.appendChild(delBtn);
   card.appendChild(head);
 
   if (c.function) { const fn = el("div", "fn"); fn.textContent = c.function; card.appendChild(fn); }
@@ -508,6 +545,77 @@ function selectCue(id, origin) {
     card.classList.add("sel");
     if (origin === "band") card.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+}
+
+// ---------------------------------------------------------------- 신규 큐 드래그
+function onNewCueDragMove(e) {
+  if (!NEW_CUE_DRAG) return;
+  const offset = charOffsetFromPoint(e.clientX, e.clientY);
+  if (offset >= 0) NEW_CUE_DRAG.endOffset = offset;
+}
+
+function onNewCueDragEnd(e) {
+  document.removeEventListener("mousemove", onNewCueDragMove);
+  document.removeEventListener("mouseup", onNewCueDragEnd);
+  if (!NEW_CUE_DRAG) return;
+  const { startOffset, endOffset } = NEW_CUE_DRAG;
+  NEW_CUE_DRAG = null;
+  const start = Math.min(startOffset, endOffset);
+  const end = Math.max(startOffset, endOffset);
+  if (end - start < 10) return;   // 너무 짧은 드래그 무시
+  showAddCueBtn(start, end, e.clientX, e.clientY);
+}
+
+function showAddCueBtn(start, end, x, y) {
+  document.getElementById("add-cue-float")?.remove();
+  const btn = document.createElement("button");
+  btn.id = "add-cue-float";
+  btn.className = "add-cue-float";
+  btn.textContent = "+ 큐 추가";
+  btn.style.left = (x + 8) + "px";
+  btn.style.top = (y - 16) + "px";
+  btn.onclick = async () => {
+    btn.disabled = true; btn.textContent = "큐 추가 중…";
+    try {
+      const r = await fetch("/api/cue-add", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: CUR.project, n: CUR.n, start, end }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "추가 실패");
+      btn.textContent = "생성 중…";
+      const tick = async () => {
+        let v;
+        try { v = await api(`/api/job?id=${j.job_id}`); }
+        catch { setTimeout(tick, 3000); return; }
+        if (v.status === "done") {
+          btn.remove();
+          await loadEpisodes(CUR.project);
+          await loadEpisode(CUR.n);
+          return;
+        }
+        if (v.status === "error") {
+          btn.textContent = "실패"; btn.disabled = false;
+          alert("큐 추가 실패: " + (v.tail || "알 수 없는 오류"));
+          return;
+        }
+        btn.textContent = `생성 중… ${v.elapsed || ""}s`;
+        setTimeout(tick, 3000);
+      };
+      tick();
+    } catch (err) {
+      alert("큐 추가 오류: " + err.message);
+      btn.remove();
+    }
+  };
+  document.body.appendChild(btn);
+  // 버튼 외부 클릭 시 제거
+  setTimeout(() => {
+    const dismiss = (e) => {
+      if (!btn.contains(e.target)) { btn.remove(); document.removeEventListener("click", dismiss); }
+    };
+    document.addEventListener("click", dismiss);
+  }, 150);
 }
 
 init().catch((e) => { $("#meta").textContent = "오류: " + e.message; });

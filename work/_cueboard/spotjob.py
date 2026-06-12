@@ -15,6 +15,56 @@ import re
 from pathlib import Path
 
 
+def _renumber_cues(ep_dir: Path, ep_n: int, from_k: int, direction: str = "down") -> None:
+    """from_k 이상인 EP{n}_Qk를 1씩 당김(down) 또는 밀기(up).
+    down: 삭제 후 뒤 번호 당김 — ascending 순으로 처리.
+    up: 추가 전 뒤 번호 밀기 — descending 순으로 처리(충돌 방지).
+    02·03·04 파일 + selection.json 갱신."""
+    import json as _json
+
+    md_names = ("02_큐시트.md", "03_프롬프트.md", "04_QA.md")
+    md_files = [ep_dir / n for n in md_names if (ep_dir / n).exists()]
+    sel_path = ep_dir / "selection.json"
+
+    pat = re.compile(rf"EP{ep_n}_Q(\d+)")
+    ks_set: set[int] = set()
+    for f in md_files:
+        for m in pat.finditer(f.read_text(encoding="utf-8")):
+            k = int(m.group(1))
+            if k >= from_k:
+                ks_set.add(k)
+
+    if not ks_set:
+        return
+
+    delta = -1 if direction == "down" else 1
+    # down=ascending(Q3→Q2, Q4→Q3), up=descending(Q4→Q5, Q3→Q4) — 충돌 방지
+    ks = sorted(ks_set, reverse=(direction == "up"))
+
+    for f in md_files:
+        text = f.read_text(encoding="utf-8")
+        for k in ks:
+            text = text.replace(f"EP{ep_n}_Q{k}", f"EP{ep_n}_Q{k + delta}")
+        f.write_text(text, encoding="utf-8")
+
+    if sel_path.exists():
+        try:
+            data = _json.loads(sel_path.read_text(encoding="utf-8"))
+            new_data: dict = {}
+            moved: set[str] = set()
+            for k in ks:
+                old_key = f"EP{ep_n}_Q{k}"
+                if old_key in data:
+                    new_data[f"EP{ep_n}_Q{k + delta}"] = data[old_key]
+                    moved.add(old_key)
+            for key, val in data.items():
+                if key not in moved:
+                    new_data[key] = val
+            sel_path.write_text(_json.dumps(new_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+
 def _splice_cue_block(prompts_path: Path, cue_id: str, block_path: Path) -> None:
     """03_프롬프트.md에서 cue_id 섹션을 block_path 내용으로 교체 후 block_path 삭제."""
     raw = block_path.read_text(encoding="utf-8")
@@ -75,11 +125,13 @@ def _variant_format(n: int, cue_id: str | None = None) -> str:
 
 def spot_prompt(project: str, n: int, ep_dir: Path, work_root: Path,
                 proj_root: Path, mode: str = "full",
-                cue_filter: str | None = None, note: str | None = None) -> str:
+                cue_filter: str | None = None, note: str | None = None,
+                inject_info: dict | None = None) -> str:
     """
     mode="full"       : 신규 화 — 분석→큐시트(앵커)→프롬프트(3변형)→QA, 4파일 생성.
     mode="prompts"    : 기존 화 — 02_큐시트 그대로 두고 03_프롬프트만 3변형 재생성.
     mode="single_cue" : cue_filter로 지정한 큐 하나만 프롬프트 재생성. note(감독 코멘트) 주입.
+    mode="add_cue"    : inject_info로 지정한 위치에 새 큐 생성. _block.md + _cue_row.md 출력.
     """
     script = ep_dir / "00_대본raw.txt"
     bible = ep_dir.parent / "_작품공통" / "00_음악바이블.md"   # 정규화-안전: 화 폴더의 부모
@@ -100,6 +152,52 @@ def spot_prompt(project: str, n: int, ep_dir: Path, work_root: Path,
 1. 대본 원문:    {p(script)}
 2. 음악 바이블:  {p(bible)}   ← 베이스톤·라이트모티프·악기 팔레트·금기. 최우선 준수.
 3. SUNO 가이드:  {p(skill)}   ← 프롬프트 표준(A안: Write 탭 구조태그 + Style 텍스트).
+"""
+
+    if mode == "add_cue":
+        inj = inject_info or {}
+        new_cue_id = inj.get("cue_id", f"EP{n}_Q?")
+        note_block = f"\n\n**감독 코멘트(반드시 반영):** {note}" if note else ""
+        return header + f"""4. 기존 큐시트: {p(out_02)}   ← 기존 큐 컨텍스트 참고용. **수정 금지.**
+5. 기존 프롬프트: {p(out_03)}   ← 인접 큐 사운드 참고용. **수정 금지.**
+
+## 신규 큐 위치 정보
+- 새 큐 ID: **{new_cue_id}** (이 번호로 고정 — 변경 금지)
+- 앞 큐: {inj.get('prev_cue_id', '없음')}
+- 뒤 큐: {inj.get('next_cue_id', '없음')}
+
+### 앞 큐 큐시트 행
+{inj.get('prev_row', '(없음)')}
+
+### 뒤 큐 큐시트 행
+{inj.get('next_row', '(없음)')}
+
+### 새 큐가 커버할 대본 발췌
+```
+{inj.get('script_excerpt', '(없음)')}
+```
+
+## 작업 — {new_cue_id} 신규 큐 생성{note_block}
+**02_큐시트.md·03_프롬프트.md는 절대 수정하지 말 것.**
+위 대본 발췌와 인접 큐 컨텍스트를 바탕으로 새 큐를 설계하고 두 파일을 저장한다.
+
+### 파일 1: `_block.md` (03_프롬프트.md 삽입용 — Write 도구)
+{_variant_format(n, cue_id=new_cue_id)}
+
+### 파일 2: `_cue_row.md` (02_큐시트.md 삽입용 — Write 도구)
+아래 구분자 헤딩을 정확히 지킨다(서버가 파싱):
+
+## MAIN_ROW
+| {new_cue_id} | #<씬번호> | IN: "<인-아웃 설명>" | <유형> | <기능> | <장르> | <무드> | <BPM> | <핵심 악기> | <에너지 곡선> | <라이트모티프> | <메모> |
+
+## CONCEPT
+**{new_cue_id}** — <2~3줄 컨셉 설명>
+
+## ANCHOR_ROW
+| {new_cue_id} | <IN앵커(대본 원문 5~20자)> | <OUT앵커 또는 —> |
+
+## 종료
+두 파일 저장 후 마지막 줄에 정확히 `SPOT_DONE EP{n} cues=1` 한 줄만 출력하고 끝낸다.
 """
 
     if mode == "single_cue":

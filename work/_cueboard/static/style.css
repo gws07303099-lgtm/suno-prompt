@@ -162,6 +162,24 @@ main { flex: 1 1 auto; display: grid; grid-template-columns: 190px 1fr 460px; mi
 .comment-regen:hover { background: #e6a23c; color: #fff; }
 .comment-regen:disabled { background: #f5e6cc; color: #b8956a; cursor: default; }
 
+/* 큐 삭제 버튼 */
+.del-cue {
+  margin-left: auto; font-size: 10px; padding: 2px 7px; cursor: pointer;
+  border-radius: 5px; border: 1px solid #e57373; background: #fff; color: #e57373;
+}
+.del-cue:hover { background: #e57373; color: #fff; }
+.del-cue:disabled { opacity: .5; cursor: default; }
+
+/* 신규 큐 추가 플로팅 버튼 */
+.add-cue-float {
+  position: fixed; z-index: 1000;
+  font-size: 13px; font-weight: 700; padding: 8px 14px; cursor: pointer;
+  border-radius: 8px; border: 2px solid #2d6cdf; background: #fff; color: #2d6cdf;
+  box-shadow: 0 3px 12px rgba(0,0,0,.2);
+}
+.add-cue-float:hover:not(:disabled) { background: #2d6cdf; color: #fff; }
+.add-cue-float:disabled { opacity: .65; cursor: default; }
+
 /* 자동 스팟팅 */
 .spotbtn {
   margin: 4px 12px; padding: 10px 14px; font-size: 14px; font-weight: 700;
