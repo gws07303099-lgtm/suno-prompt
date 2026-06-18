@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>인수인계 — Cue Board v6.0.0</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  background: #eef0f3; color: #1d2127; line-height: 1.7;
+}
+
+/* ── 히어로 ── */
+.hero {
+  background: #1d2127; color: #fff;
+  padding: 56px 32px 48px; text-align: center;
+}
+.hero-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  background: rgba(230,162,60,.25); color: #f0c060;
+  padding: 4px 14px; border-radius: 20px; margin-bottom: 20px;
+  border: 1px solid rgba(230,162,60,.4);
+}
+.hero h1 {
+  font-size: 32px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 10px;
+  line-height: 1.25;
+}
+.hero h1 span { color: #5a9eff; }
+.hero-meta { font-size: 13px; color: #6b7686; margin-top: 6px; }
+.hero-meta b { color: #9aa3b0; }
+
+/* ── 공통 ── */
+.section { padding: 48px 32px; max-width: 960px; margin: 0 auto; }
+.section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #2d6cdf; margin-bottom: 8px;
+}
+.section-title { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+.section-desc { font-size: 14px; color: #5a626f; margin-bottom: 28px; }
+.sep { border: 0; border-top: 1px solid #d7dbe0; margin: 0; }
+
+/* ── 현황 카드 ── */
+.status-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.status-card {
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 10px;
+  padding: 20px 22px;
+}
+.status-card .num {
+  font-size: 28px; font-weight: 800; color: #2d6cdf; line-height: 1; margin-bottom: 4px;
+}
+.status-card .num.green { color: #2bb673; }
+.status-card .num.orange { color: #e6a23c; }
+.status-card .label { font-size: 12px; color: #5a626f; font-weight: 600; }
+.status-card .sub { font-size: 11px; color: #9aa3b0; margin-top: 2px; }
+
+/* ── 단계 리스트 ── */
+.steps { display: flex; flex-direction: column; gap: 12px; }
+.step {
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 10px;
+  padding: 16px 20px; display: flex; align-items: flex-start; gap: 16px;
+}
+.step-num {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: #2d6cdf; color: #fff;
+  font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.step h4 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.step p { font-size: 13px; color: #5a626f; line-height: 1.6; }
+.step code {
+  background: #f1f3f6; color: #2d6cdf; font-family: "Consolas", monospace;
+  font-size: 12px; padding: 1px 6px; border-radius: 4px;
+}
+
+/* ── 파이프라인 ── */
+.pipeline {
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 12px;
+  padding: 24px 28px; margin-bottom: 16px;
+}
+.pipeline-title {
+  font-size: 11px; font-weight: 700; color: #9aa3b0;
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px;
+}
+.flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.flow-step {
+  background: #eaf1fd; color: #2d6cdf; font-weight: 700; font-size: 12px;
+  padding: 5px 14px; border-radius: 20px; white-space: nowrap;
+}
+.flow-step.ai { background: #1d2127; color: #7eaaff; }
+.flow-step.file { background: #f1f3f6; color: #5a626f; }
+.flow-arrow { color: #9aa3b0; font-size: 16px; }
+.flow-note { font-size: 11.5px; color: #9aa3b0; margin-top: 10px; }
+
+/* ── 파일 구조 ── */
+.file-tree {
+  background: #1d2127; color: #c9d1d9; border-radius: 10px;
+  padding: 22px 26px; font-family: "Consolas", monospace; font-size: 13px;
+  line-height: 2;
+}
+.ft-dir { color: #7eaaff; font-weight: 700; }
+.ft-key { color: #2bb673; }
+.ft-comment { color: #6b7686; }
+
+/* ── 버전 표 ── */
+.ver-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 10px;
+  overflow: hidden;
+}
+.ver-table th {
+  background: #f1f3f6; font-size: 11px; font-weight: 700;
+  letter-spacing: .5px; text-transform: uppercase; color: #5a626f;
+  padding: 10px 16px; text-align: left;
+  border-bottom: 1px solid #e1e5ea;
+}
+.ver-table td {
+  padding: 10px 16px; border-bottom: 1px solid #f0f2f5;
+  vertical-align: top;
+}
+.ver-table tr:last-child td { border-bottom: none; }
+.ver-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 1px 8px; border-radius: 10px; white-space: nowrap;
+}
+.badge-major { background: #eaf1fd; color: #2d6cdf; }
+.badge-minor { background: #eafaf0; color: #2bb673; }
+.badge-patch { background: #f1f3f6; color: #5a626f; }
+.ver-tag { font-family: "Consolas", monospace; font-weight: 700; color: #1d2127; }
+.feat-tag-sm {
+  font-family: "Consolas", monospace; font-size: 11px;
+  color: #9aa3b0; display: block; margin-top: 2px;
+}
+
+/* ── 주의사항 ── */
+.warn-list { display: flex; flex-direction: column; gap: 10px; }
+.warn-item {
+  background: #fff; border: 1px solid #e1e5ea; border-left: 4px solid #e6a23c;
+  border-radius: 8px; padding: 14px 18px; font-size: 13px;
+}
+.warn-item.info { border-left-color: #2d6cdf; }
+.warn-item.ok { border-left-color: #2bb673; }
+.warn-item b { color: #1d2127; }
+
+/* ── 푸터 ── */
+footer {
+  text-align: center; font-size: 11px; color: #9aa3b0;
+  padding: 28px 0 40px; border-top: 1px solid #d7dbe0; margin-top: 20px;
+}
+</style>
+</head>
+<body>
+
+<!-- 히어로 -->
+<div class="hero">
+  <div class="hero-badge">인수인계 문서</div>
+  <h1>Cue Board <span>v6.0.0</span></h1>
+  <div class="hero-meta">
+    <b>프로젝트</b> 며느리가 친정을 숨김 (전 50화) &nbsp;·&nbsp;
+    <b>작성</b> 2026-06-18 &nbsp;·&nbsp;
+    <b>GitHub</b> gws07303099-lgtm/suno-prompt
+  </div>
+</div>
+
+<!-- 현황 -->
+<div class="section">
+  <div class="section-label">현황</div>
+  <div class="section-title">지금 어디까지 왔나</div>
+  <div class="section-desc">38화까지 스팟팅 완료. 39화부터 이어서 작업하면 됩니다.</div>
+
+  <div class="status-grid">
+    <div class="status-card">
+      <div class="num green">38화</div>
+      <div class="label">스팟팅 완료</div>
+      <div class="sub">33~38화 이번 세션 완료</div>
+    </div>
+    <div class="status-card">
+      <div class="num orange">39~50화</div>
+      <div class="label">스팟팅 미완료</div>
+      <div class="sub">다음 작업 대상</div>
+    </div>
+    <div class="status-card">
+      <div class="num">v6.0.0</div>
+      <div class="label">Cue Board 버전</div>
+      <div class="sub">HTML 페이지 3종 추가</div>
+    </div>
+    <div class="status-card">
+      <div class="num">8765</div>
+      <div class="label">서버 포트</div>
+      <div class="sub">localhost:8765</div>
+    </div>
+    <div class="status-card">
+      <div class="num">~2분</div>
+      <div class="label">화당 스팟팅 시간</div>
+      <div class="sub">5큐 기준 자동 파이프라인</div>
+    </div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- 지금 바로 할 일 -->
+<div class="section">
+  <div class="section-label">다음 작업</div>
+  <div class="section-title">지금 바로 할 일</div>
+  <div class="section-desc">39화부터 순서대로 스팟팅합니다. 한 화씩 진행하세요.</div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div>
+        <h4>서버 실행</h4>
+        <p>터미널에서 <code>python work/_cueboard/server.py</code> 실행 → 브라우저에서 <code>localhost:8765</code> 접속</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div>
+        <h4>화 폴더 준비</h4>
+        <p><code>work/며느리가친정을숨김/39화/</code> 폴더 생성 → 대본 텍스트를 <code>00_대본raw.txt</code>로 저장 (파일명 정확히)</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div>
+        <h4>자동 스팟팅 실행</h4>
+        <p>Cue Board 좌측 화 목록에서 39화 선택 → <b>"자동 스팟팅"</b> 버튼 클릭 → 로그창 확인하며 약 2~3분 대기. <code>SPOT_DONE</code> 메시지가 뜨면 완료.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div>
+        <h4>결과 검토 및 선택</h4>
+        <p>큐 카드의 A·B·C 탭을 전환하며 비교 → 마음에 드는 변형에 <b>★ 선택</b> 표시. 수정이 필요하면 코멘트 입력 후 <b>"재생성"</b>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div>
+        <h4>커밋 (작업 저장)</h4>
+        <p>한 화 완료 후 git commit. 제목 예시: <code>39화 스팟팅 데이터 (자동 생성)</code> — 데이터 커밋은 버전 태그 없음.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- 워크플로우 -->
+<div class="section">
+  <div class="section-label">워크플로우</div>
+  <div class="section-title">어떻게 돌아가나</div>
+
+  <div class="pipeline">
+    <div class="pipeline-title">전체 스팟팅 파이프라인 (자동, 화 신규 생성)</div>
+    <div class="flow">
+      <span class="flow-step file">00_대본raw.txt</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Sonnet · 씬 분석</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step file">01_분석.md</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Sonnet · 스팟팅</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step file">02_큐시트.md</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Sonnet · 프롬프트</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step file">03_프롬프트.md (A/B/C)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Sonnet · QA</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step file">04_QA.md</span>
+    </div>
+    <div class="flow-note">"자동 스팟팅" 버튼 한 번으로 4파일 전부 자동 생성. 로그창에서 실시간 확인 가능.</div>
+  </div>
+
+  <div class="pipeline">
+    <div class="pipeline-title">단일 큐 수정 루프 (코멘트 입력 후 재생성)</div>
+    <div class="flow">
+      <span class="flow-step">코멘트 입력</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">재생성 버튼</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Haiku · 큐 블록만</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">서버 splice</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">카드 즉시 갱신</span>
+    </div>
+    <div class="flow-note">전체 재생성 없이 해당 큐만 교체. "스트링을 더 얇게, 드럼 제거" 같은 자연어로 입력.</div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- 파일 구조 -->
+<div class="section">
+  <div class="section-label">파일 구조</div>
+  <div class="section-title">폴더 레이아웃</div>
+
+  <div class="file-tree">
+<span class="ft-dir">work/</span><br>
+&nbsp;&nbsp;<span class="ft-dir">_cueboard/</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-key">server.py</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-comment">← 서버 실행 진입점 (python server.py)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-key">spotjob.py</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-comment">← Claude 파이프라인 빌더</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;app.js / index.html &nbsp;<span class="ft-comment">← 프론트엔드</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-dir">static/</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-comment">← 이 문서 포함 HTML 페이지들</span><br>
+<br>
+&nbsp;&nbsp;<span class="ft-dir">며느리가친정을숨김/</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-dir">N화/</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-key">00_대본raw.txt</span>&nbsp;&nbsp;<span class="ft-comment">← 입력 (수동 저장, 파일명 정확히)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;01_분석.md&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-comment">← 자동 생성</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;02_큐시트.md&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-comment">← 자동 생성</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;03_프롬프트.md&nbsp;&nbsp;<span class="ft-comment">← 자동 생성 (A/B/C 변형)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;04_QA.md&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-comment">← 자동 생성 (PASS/수정 결과)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-key">selection.json</span>&nbsp;&nbsp;<span class="ft-comment">← 선택·킵·코멘트 상태 (로컬, git 미포함)</span>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- 버전 이력 -->
+<div class="section">
+  <div class="section-label">버전 이력</div>
+  <div class="section-title">무엇이 언제 추가됐나</div>
+
+  <table class="ver-table">
+    <thead>
+      <tr>
+        <th>버전</th>
+        <th>구분</th>
+        <th>기능</th>
+        <th>Git 태그</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="ver-tag">v6.0.0</span></td>
+        <td><span class="ver-badge badge-major">새기능</span></td>
+        <td>인트로·개발로그·변경이력 HTML 페이지 추가 + QA 출력 자동 압축 (4차 fix)</td>
+        <td><span class="feat-tag-sm">feat/html-페이지+QA-fix</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v5.0.2</span></td>
+        <td><span class="ver-badge badge-patch">UI</span></td>
+        <td>큐 카드 헤더에 씬·Q번호 표시 (EP31 · #63 · Q2), 씬 번호 정규화</td>
+        <td><span class="feat-tag-sm">ui/씬-Q-표시</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v5.0.1</span></td>
+        <td><span class="ver-badge badge-patch">버그픽스</span></td>
+        <td>큐 삭제·추가 기능 버그 수정</td>
+        <td><span class="feat-tag-sm">fix/삭제-추가-버그</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v5.0.0</span></td>
+        <td><span class="ver-badge badge-major">새기능</span></td>
+        <td>큐 삭제(×) · 추가(+) — 카드 hover 시 삭제, 플로팅 버튼으로 추가</td>
+        <td><span class="feat-tag-sm">feat/큐-삭제-추가</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v4.1.1</span></td>
+        <td><span class="ver-badge badge-patch">버그픽스</span></td>
+        <td>서버사이드 splice 버그 수정</td>
+        <td><span class="feat-tag-sm">fix/splice-버그</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v4.1.0</span></td>
+        <td><span class="ver-badge badge-minor">기능 방안</span></td>
+        <td>single_cue 방안B — 서버사이드 splice로 파일 읽기 최소화, Haiku 전환</td>
+        <td><span class="feat-tag-sm">feat/single-cue-방안B</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v4.0.0</span></td>
+        <td><span class="ver-badge badge-major">새기능</span></td>
+        <td>재생성 버튼 — 코멘트 입력 후 A/B/C 단일 큐 재생성</td>
+        <td><span class="feat-tag-sm">feat/재생성</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v3.0.0</span></td>
+        <td><span class="ver-badge badge-major">새기능</span></td>
+        <td>드래그 구간 설정 + 재사용 큐 라이브러리</td>
+        <td><span class="feat-tag-sm">feat/드래그</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v2.0.0</span></td>
+        <td><span class="ver-badge badge-major">새기능</span></td>
+        <td>큐당 A·B·C 3변형 체계 — 탭 전환 비교, 선택(★) / 킵</td>
+        <td><span class="feat-tag-sm">feat/3변형-ABC</span></td>
+      </tr>
+      <tr>
+        <td><span class="ver-tag">v1.0.0</span></td>
+        <td><span class="ver-badge badge-patch">초기</span></td>
+        <td>Initial commit — 기본 Cue Board 구조</td>
+        <td><span class="feat-tag-sm">feat/initial</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<hr class="sep">
+
+<!-- 주의사항 -->
+<div class="section">
+  <div class="section-label">주의사항</div>
+  <div class="section-title">꼭 확인하세요</div>
+
+  <div class="warn-list">
+    <div class="warn-item">
+      <b>대본 파일명 규칙 준수</b> — 반드시 <code style="background:#f1f3f6;padding:1px 6px;border-radius:4px;font-size:12px;">00_대본raw.txt</code> 로 저장. 파일명이 다르면 자동 스팟팅이 대본을 찾지 못함.
+    </div>
+    <div class="warn-item">
+      <b>selection.json은 git에 올리지 않음</b> — 선택·킵·코멘트 상태는 로컬 파일로만 관리. 커밋 시 포함 금지.
+    </div>
+    <div class="warn-item info">
+      <b>서버 실행 필수</b> — Cue Board는 로컬 웹앱. <code style="background:#f1f3f6;padding:1px 6px;border-radius:4px;font-size:12px;">python work/_cueboard/server.py</code> 로 서버 켜야 동작. 브라우저 단독 실행 불가.
+    </div>
+    <div class="warn-item info">
+      <b>Claude API 키 필요</b> — 자동 스팟팅·재생성은 Claude API를 사용. <code style="background:#f1f3f6;padding:1px 6px;border-radius:4px;font-size:12px;">ANTHROPIC_API_KEY</code> 환경변수가 설정되어 있어야 함.
+    </div>
+    <div class="warn-item ok">
+      <b>GitHub 저장소</b> — <code style="background:#f1f3f6;padding:1px 6px;border-radius:4px;font-size:12px;">https://github.com/gws07303099-lgtm/suno-prompt.git</code> — 최신 코드는 여기서 pull.
+    </div>
+  </div>
+</div>
+
+<footer>
+  Cue Board v6.0.0 &nbsp;·&nbsp; 며느리가 친정을 숨김 &nbsp;·&nbsp; 인수인계 문서 2026-06-18
+</footer>
+
+</body>
+</html>
