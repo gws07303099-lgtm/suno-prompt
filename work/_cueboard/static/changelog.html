@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>작업 이력 — 며느리가 친정을 숨김 SUNO 워크플로우</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+    background: #eef0f3; color: #1d2127; margin: 0; padding: 24px;
+    line-height: 1.7;
+  }
+  .page { max-width: 900px; margin: 0 auto; }
+  h1 {
+    font-size: 22px; margin: 0 0 4px;
+    background: #1d2127; color: #fff;
+    padding: 18px 22px; border-radius: 10px 10px 0 0;
+  }
+  .subtitle {
+    background: #2d3440; color: #9aa3b0;
+    font-size: 13px; padding: 8px 22px 12px;
+    border-radius: 0 0 10px 10px; margin-bottom: 24px;
+  }
+  .commit {
+    background: #fff; border: 1px solid #e1e5ea;
+    border-left: 5px solid #2d6cdf;
+    border-radius: 8px; padding: 18px 20px; margin-bottom: 18px;
+  }
+  .commit.green  { border-left-color: #2bb673; }
+  .commit.orange { border-left-color: #e6a23c; }
+  .commit.gray   { border-left-color: #9aa3b0; }
+  .commit-head {
+    display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px;
+  }
+  .commit-hash {
+    font-family: "Consolas", monospace; font-size: 11px;
+    background: #eef2f7; color: #5a626f;
+    padding: 2px 7px; border-radius: 5px; flex-shrink: 0; margin-top: 2px;
+  }
+  .commit-title { font-weight: 700; font-size: 15px; }
+  .commit-date { font-size: 12px; color: #9aa3b0; margin-left: auto; flex-shrink: 0; margin-top: 3px; }
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 10px; margin-right: 5px; vertical-align: middle;
+  }
+  .tag.feat  { background: #eaf1fd; color: #2d6cdf; }
+  .tag.fix   { background: #fef0e7; color: #c87d24; }
+  .tag.work  { background: #eafaf0; color: #2bb673; }
+  .tag.infra { background: #f1f2f4; color: #5a626f; }
+  .section { margin-bottom: 10px; }
+  .section-title {
+    font-size: 11px; font-weight: 700; color: #5a626f;
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px;
+  }
+  ul { margin: 0; padding-left: 18px; }
+  li { font-size: 13px; margin-bottom: 3px; }
+  li code {
+    font-family: "Consolas", monospace; font-size: 11.5px;
+    background: #f4f6f8; padding: 1px 5px; border-radius: 4px; color: #1d2127;
+  }
+  .files {
+    display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px;
+  }
+  .file {
+    font-family: "Consolas", monospace; font-size: 11px;
+    background: #f4f6f8; border: 1px solid #e1e5ea;
+    padding: 2px 8px; border-radius: 5px; color: #444;
+  }
+  .divider {
+    font-size: 12px; font-weight: 700; color: #9aa3b0;
+    text-transform: uppercase; letter-spacing: 1px;
+    padding: 12px 0 6px; border-top: 1px solid #e1e5ea; margin-bottom: 14px;
+  }
+  .stat-row {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .stat {
+    background: #fff; border: 1px solid #e1e5ea; border-radius: 8px;
+    padding: 12px 18px; text-align: center; flex: 1 1 100px;
+  }
+  .stat-num { font-size: 26px; font-weight: 800; color: #2d6cdf; }
+  .stat-label { font-size: 11px; color: #9aa3b0; margin-top: 2px; }
+  .workflow {
+    background: #fff; border: 1px solid #e1e5ea; border-radius: 8px;
+    padding: 16px 20px; margin-bottom: 20px;
+  }
+  .workflow h3 { margin: 0 0 10px; font-size: 13px; color: #5a626f; }
+  .flow {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px;
+  }
+  .flow-step {
+    background: #eaf1fd; color: #2d6cdf; font-weight: 700;
+    padding: 4px 12px; border-radius: 20px;
+  }
+  .flow-arrow { color: #9aa3b0; font-size: 16px; }
+  .footer { text-align: center; font-size: 11px; color: #9aa3b0; margin-top: 24px; padding-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>📋 작업 이력</h1>
+<div class="subtitle">「며느리가 친정을 숨김」 — SUNO 인스트루멘탈 음악 워크플로우 &amp; Cue Board</div>
+
+<!-- 통계 -->
+<div class="stat-row">
+  <div class="stat"><div class="stat-num">14</div><div class="stat-label">총 커밋</div></div>
+  <div class="stat"><div class="stat-num">32</div><div class="stat-label">완성 화수</div></div>
+  <div class="stat"><div class="stat-num">5</div><div class="stat-label">Cue Board 버전</div></div>
+  <div class="stat"><div class="stat-num">160+</div><div class="stat-label">총 큐 변형 (A/B/C)</div></div>
+</div>
+
+<!-- 워크플로우 -->
+<div class="workflow">
+  <h3>🔄 자동 스팟팅 파이프라인</h3>
+  <div class="flow">
+    <span class="flow-step">00_대본raw.txt</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">01_분석.md</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">02_큐시트.md</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">03_프롬프트.md (A/B/C)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">04_QA.md</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">SUNO 입력</span>
+  </div>
+</div>
+
+<div class="divider">커밋 이력 (최신순)</div>
+
+<!-- 691bf8c -->
+<div class="commit">
+  <div class="commit-head">
+    <span class="commit-hash">691bf8c</span>
+    <span class="commit-title">
+      <span class="tag feat">FEAT</span>
+      UI 개선: 큐 카드 헤더 씬·Q 표시 + 씬 정규화
+    </span>
+    <span class="commit-date">2026-06-12</span>
+  </div>
+  <div class="section">
+    <div class="section-title">카드 헤더 재구성</div>
+    <ul>
+      <li>CUE_ID 표시 형식 변경: <code>EP31_Q4</code> → <code>EP31 · #63 · Q2</code> (화·씬·씬 상대 Q)</li>
+      <li>씬 상대 Q: 씬이 바뀌면 Q 번호 1부터 리셋</li>
+      <li>알파벳 구간 정규화: <code>#63-c~d</code>·<code>#63-e</code> → <code>#63</code> 으로 통일 표시 + 같은 그룹 카운트</li>
+      <li>밴드 레이블·카드 Q 번호 항상 일치</li>
+    </ul>
+  </div>
+  <div class="section">
+    <div class="section-title">UI 폴리시</div>
+    <ul>
+      <li>화 목록 동그라미 축소 8px → 6px</li>
+      <li>큐 삭제 버튼: 기본 숨김, 카드 hover 시만 표시</li>
+      <li>감독 코멘트 토글 + 재생성 버튼 한 줄 배치 (<code>comment-controls</code> flex row)</li>
+      <li><code>card-sub</code> 2행 추가: 선택 배지·재사용 배지를 헤더 아래 별도 행으로 분리</li>
+      <li>카드 <code>border-radius 10px</code> + hover 시 그림자</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">_cueboard/static/app.js</span>
+    <span class="file">_cueboard/static/style.css</span>
+  </div>
+</div>
+
+<!-- da257ae -->
+<div class="commit gray">
+  <div class="commit-head">
+    <span class="commit-hash">da257ae</span>
+    <span class="commit-title">
+      <span class="tag infra">INFRA</span>
+      32화 큐 데이터 갱신 (UI 작업 전 스냅샷)
+    </span>
+    <span class="commit-date">2026-06-12</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>UI 폴리시 작업 시작 전 32화 selection.json 안전 스냅샷</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">32화/selection.json</span>
+  </div>
+</div>
+
+<!-- 26fa3ec -->
+<div class="commit orange">
+  <div class="commit-head">
+    <span class="commit-hash">26fa3ec</span>
+    <span class="commit-title">
+      <span class="tag fix">FIX</span>
+      큐 삭제·추가 기능 버그 수정 + 30·31·32화 테스트 반영
+    </span>
+    <span class="commit-date">2026-06-12</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li><code>server.py</code>에 <code>import re</code> 누락 → <code>DELETE /api/cue</code> 호출 시 <code>NameError</code> 발생, 추가</li>
+      <li>30·31·32화 큐 삭제/추가 실제 테스트 후 selection.json 갱신</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">_cueboard/server.py</span>
+    <span class="file">30화/selection.json</span>
+    <span class="file">31화/selection.json</span>
+    <span class="file">32화/selection.json</span>
+  </div>
+</div>
+
+<!-- e845dc1 -->
+<div class="commit">
+  <div class="commit-head">
+    <span class="commit-hash">e845dc1</span>
+    <span class="commit-title">
+      <span class="tag feat">FEAT</span>
+      큐 삭제·추가 기능 (DELETE /api/cue, POST /api/cue-add)
+    </span>
+    <span class="commit-date">2026-06-12</span>
+  </div>
+  <div class="section">
+    <div class="section-title">큐 삭제</div>
+    <ul>
+      <li><code>DELETE /api/cue?id=EP31_Q3</code>: <code>02_큐시트.md</code>·<code>03_프롬프트.md</code>에서 해당 큐 블록 제거</li>
+      <li>카드 우측 상단 × 버튼 → 확인 후 삭제, 카드 즉시 제거</li>
+    </ul>
+  </div>
+  <div class="section">
+    <div class="section-title">큐 추가</div>
+    <ul>
+      <li><code>POST /api/cue-add</code>: 새 CUE_ID를 지정 위치에 삽입, 빈 큐 블록 자동 생성</li>
+      <li>플로팅 "+ 큐 추가" 버튼으로 접근</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">_cueboard/static/app.js</span>
+    <span class="file">_cueboard/server.py</span>
+    <span class="file">_cueboard/cueparse.py</span>
+  </div>
+</div>
+
+<!-- fb84b8d -->
+<div class="commit green">
+  <div class="commit-head">
+    <span class="commit-hash">fb84b8d</span>
+    <span class="commit-title">
+      <span class="tag work">WORK</span>
+      32화 방안B/A 속도 테스트 결과물 반영
+    </span>
+    <span class="commit-date">이전 세션</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>single_cue 방안B(서버 splice) 속도 검증 완료 후 04_QA·selection.json 반영</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">32화/04_QA.md</span>
+    <span class="file">32화/selection.json</span>
+  </div>
+</div>
+
+<!-- 8192193 -->
+<div class="commit orange">
+  <div class="commit-head">
+    <span class="commit-hash">8192193</span>
+    <span class="commit-title">
+      <span class="tag fix">FIX</span>
+      splice 버그 수정: _block.md 프리앰블 제거 후 ### CUE_ID 부터만 삽입
+    </span>
+    <span class="commit-date">이전 세션</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>Claude가 <code>_block.md</code>에 설명 문장(프리앰블)을 함께 출력하면 splice 결과에 오염 텍스트 포함되던 버그</li>
+      <li>수정: <code>### EP{n}_Q</code> 헤더 이전 라인 전부 제거 후 splice</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">_cueboard/spotjob.py</span>
+  </div>
+</div>
+
+<!-- d21c671 -->
+<div class="commit">
+  <div class="commit-head">
+    <span class="commit-hash">d21c671</span>
+    <span class="commit-title">
+      <span class="tag feat">FEAT</span>
+      single_cue 방안B: Claude → _block.md, 서버 → splice
+    </span>
+    <span class="commit-date">이전 세션</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>기존 방안A: Claude가 <code>03_프롬프트.md</code> 전체를 읽고 해당 큐만 교체 → 토큰 낭비</li>
+      <li>방안B: Claude는 <code>_block.md</code>(단일 큐 블록)만 새로 작성, 서버가 <code>03_프롬프트.md</code>에 splice → 파일 읽기 최소화</li>
+      <li>속도·비용 모두 개선</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">_cueboard/spotjob.py</span>
+    <span class="file">_cueboard/server.py</span>
+  </div>
+</div>
+
+<!-- a58974d -->
+<div class="commit green">
+  <div class="commit-head">
+    <span class="commit-hash">a58974d</span>
+    <span class="commit-title">
+      <span class="tag work">WORK</span>
+      30·31화 프롬프트 품질개선 + 32화 신규 완성
+    </span>
+    <span class="commit-date">2026-06-11</span>
+  </div>
+  <div class="section">
+    <div class="section-title">변경 내용</div>
+    <ul>
+      <li><strong>30화 Q1~Q5</strong>: BPM·키·악기 표현을 큐시트에 밀착 재기술 — 더 구체적인 조성·악기 조합으로 교체</li>
+      <li><strong>31화 Q1~Q5</strong>: 동일 기준으로 변형 전면 재기술 (E minor → 저역 드론+프리페어드 피아노 등)</li>
+      <li><strong>32화 신규</strong>: 분석→큐시트→프롬프트(A/B/C 전 변형)→QA 4파일 완전 신규 생성</li>
+      <li>selection.json 선택 기록 갱신 (30·31·32화)</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">30화/03_프롬프트.md</span>
+    <span class="file">30화/04_QA.md</span>
+    <span class="file">30화/selection.json</span>
+    <span class="file">31화/03_프롬프트.md</span>
+    <span class="file">31화/04_QA.md</span>
+    <span class="file">31화/selection.json</span>
+    <span class="file">32화/01_분석.md ✨</span>
+    <span class="file">32화/02_큐시트.md ✨</span>
+    <span class="file">32화/03_프롬프트.md ✨</span>
+    <span class="file">32화/04_QA.md ✨</span>
+    <span class="file">32화/selection.json ✨</span>
+  </div>
+</div>
+
+<!-- 4672945 -->
+<div class="commit">
+  <div class="commit-head">
+    <span class="commit-hash">4672945</span>
+    <span class="commit-title">
+      <span class="tag feat">FEAT</span>
+      Cue Board UX 개선 3건: 재생성 버튼 항상 표시·ABC 전부 재생성·haiku 속도
+    </span>
+    <span class="commit-date">2026-06-11</span>
+  </div>
+  <div class="section">
+    <div class="section-title">개선 1 — 재생성 버튼 항상 표시</div>
+    <ul>
+      <li>기존: "코멘트 추가" 토글을 펼쳐야만 재생성 버튼 접근 가능</li>
+      <li>수정: <code>regenBtn</code>을 <code>comment-body</code> 밖으로 분리 → 카드 하단에 항상 노출</li>
+      <li>코멘트 textarea는 같은 클로저 스코프 유지 — note 전달 정상 작동</li>
+    </ul>
+  </div>
+  <div class="section">
+    <div class="section-title">개선 2 — 드래그 재생성 시 A/B/C 세 변형 모두 교체</div>
+    <ul>
+      <li>기존 원인: <code>_variant_format(n)</code>이 CUE_ID를 <code>EP{n}_Q1</code>으로 하드코딩 → Claude가 예시 헤더와 실제 대상 큐를 혼동해 A 변형 하나만 교체</li>
+      <li>수정: <code>_variant_format(n, cue_id=None)</code>에 파라미터 추가 → single_cue 호출 시 실제 CUE_ID를 포맷 예시에 반영</li>
+      <li>프롬프트 지시 강화: "세 변형 모두 새로 작성한다. 변형 A 하나만 바꾸거나 부분 수정 금지"</li>
+    </ul>
+  </div>
+  <div class="section">
+    <div class="section-title">개선 3 — single_cue 재생성 속도 향상</div>
+    <ul>
+      <li>기존: 모든 모드 <code>sonnet</code> 사용</li>
+      <li>수정: <code>SPOT_MODEL_FAST = "haiku"</code> 추가 → single_cue 모드에서 haiku 사용</li>
+      <li>단일 큐 3변형 교체 작업은 haiku로 충분 — sonnet 대비 약 50~70% 속도 단축 기대</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">_cueboard/static/app.js</span>
+    <span class="file">_cueboard/spotjob.py</span>
+    <span class="file">_cueboard/server.py</span>
+  </div>
+</div>
+
+<!-- a3ec272 -->
+<div class="commit green">
+  <div class="commit-head">
+    <span class="commit-hash">a3ec272</span>
+    <span class="commit-title">
+      <span class="tag work">WORK</span>
+      30·31화 프롬프트 품질개선 + EP31_Q3 코멘트 재생성 + 변형 선택 저장
+    </span>
+    <span class="commit-date">이전 세션</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>30·31화 큐 프롬프트 1차 품질 개선</li>
+      <li>EP31_Q3: 감독 코멘트 반영 단일 큐 재생성</li>
+      <li>selection.json 변형 선택(A/B/C) 저장</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">30화/03_프롬프트.md</span>
+    <span class="file">31화/03_프롬프트.md</span>
+    <span class="file">selection.json (30·31화)</span>
+  </div>
+</div>
+
+<!-- c2682b3 -->
+<div class="commit">
+  <div class="commit-head">
+    <span class="commit-hash">c2682b3</span>
+    <span class="commit-title">
+      <span class="tag feat">FEAT</span>
+      재사용 큐 라이브러리 + Cue Board 드래그 범위·코멘트
+    </span>
+    <span class="commit-date">이전 세션</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>큐 재사용 라이브러리: 동일 작품 내 이전 화 큐를 참조·재활용</li>
+      <li>Cue Board: 대본 드래그로 큐 커버 구간(range_override) 설정</li>
+      <li>감독 코멘트 입력 → single_cue 재생성 시 Claude에게 note 전달</li>
+      <li>다수 버그 수정: 재생성 중 버튼 고착, range_override 무시, 드래그 핸들 stale 클로저 등</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">_cueboard/static/app.js</span>
+    <span class="file">_cueboard/spotjob.py</span>
+    <span class="file">_cueboard/server.py</span>
+    <span class="file">_cueboard/cueparse.py</span>
+  </div>
+</div>
+
+<!-- dc0323a -->
+<div class="commit gray">
+  <div class="commit-head">
+    <span class="commit-hash">dc0323a</span>
+    <span class="commit-title">
+      <span class="tag infra">INFRA</span>
+      에이전트 정의·README를 Cue Board 운영 경로 규약에 정합
+    </span>
+    <span class="commit-date">이전 세션</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>에이전트 YAML 정의를 Cue Board 폴더 구조에 맞게 경로 수정</li>
+      <li>README 운영 가이드 갱신</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 2212e8c -->
+<div class="commit">
+  <div class="commit-head">
+    <span class="commit-hash">2212e8c</span>
+    <span class="commit-title">
+      <span class="tag feat">FEAT</span>
+      v0.3 — 큐당 3변형 프롬프트(A/B/C) + 선택/킵
+    </span>
+    <span class="commit-date">이전 세션</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>큐 프롬프트 구조를 단일 안 → A(정공법)·B(대안 색)·C(실험) 3변형 체계로 전환</li>
+      <li>Cue Board 탭 UI: A/B/C 탭 전환 + 선택(Select)/킵(Keep) 저장</li>
+      <li><code>selection.json</code>: 선택·킵·range_override·comment 저장 구조</li>
+    </ul>
+  </div>
+  <div class="files">
+    <span class="file">_cueboard/static/app.js</span>
+    <span class="file">_cueboard/spotjob.py</span>
+    <span class="file">_cueboard/cueparse.py</span>
+  </div>
+</div>
+
+<!-- 9dc22ba -->
+<div class="commit gray">
+  <div class="commit-head">
+    <span class="commit-hash">9dc22ba</span>
+    <span class="commit-title">
+      <span class="tag infra">INFRA</span>
+      Initial commit — 숏폼드라마 SUNO 음악 워크플로우 + Cue Board
+    </span>
+    <span class="commit-date">초기</span>
+  </div>
+  <div class="section">
+    <ul>
+      <li>기본 파이프라인: 스팟팅 → 큐시트 → SUNO 프롬프트 → QA</li>
+      <li>Cue Board 로컬 웹앱: 대본 뷰어 + 큐 카드 + 자동 스팟팅 버튼</li>
+      <li>음악 바이블, 에이전트 스킬, claude -p 헤들리스 실행 구조</li>
+    </ul>
+  </div>
+</div>
+
+<div class="divider">파일 구조</div>
+
+<div style="background:#fff;border:1px solid #e1e5ea;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
+  <div style="font-family:'Consolas',monospace;font-size:12.5px;line-height:2;color:#1d2127;">
+    <div style="color:#2d6cdf;font-weight:700;">suno prompt/</div>
+    <div style="padding-left:16px;">
+      <div style="color:#2d6cdf;font-weight:700;">work/</div>
+      <div style="padding-left:16px;">
+        <div style="color:#2d6cdf;font-weight:700;">_cueboard/</div>
+        <div style="padding-left:16px;color:#5a626f;">
+          server.py &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#9aa3b0;font-size:11px;">HTTP 서버 + 잡 레지스트리</span><br>
+          spotjob.py &nbsp;&nbsp;<span style="color:#9aa3b0;font-size:11px;">Claude 프롬프트 빌더 (full/prompts/single_cue)</span><br>
+          cueparse.py &nbsp;<span style="color:#9aa3b0;font-size:11px;">대본 파싱 + selection.json 관리</span><br>
+          static/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#9aa3b0;font-size:11px;">index.html · app.js · style.css · changelog.html</span>
+        </div>
+        <div style="color:#2bb673;font-weight:700;">며느리가친정을숨김/</div>
+        <div style="padding-left:16px;color:#5a626f;">
+          _작품공통/ &nbsp;&nbsp;<span style="color:#9aa3b0;font-size:11px;">00_음악바이블.md</span><br>
+          N화/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#9aa3b0;font-size:11px;">00_대본raw · 01_분석 · 02_큐시트 · 03_프롬프트 · 04_QA · selection.json</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  최종 업데이트: 2026-06-12 &nbsp;|&nbsp; 프로젝트: 며느리가 친정을 숨김 &nbsp;|&nbsp; 음악감독 워크플로우 v0.5
+</div>
+
+</div>
+</body>
+</html>

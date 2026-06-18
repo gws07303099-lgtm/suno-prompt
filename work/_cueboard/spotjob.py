@@ -247,7 +247,16 @@ def spot_prompt(project: str, n: int, ep_dir: Path, work_root: Path,
 {_variant_format(n)}
 
 ### {p(out_04)} (QA 갱신)
-가이드 §7로 03_프롬프트만 자가검수(글자수·instrumental 표기·가사 혼입·CUE_ID 정합·톤 일관성, 변형 3개 존재). 문제 시 03만 수정 후 재검.
+가이드 §7로 03_프롬프트를 검수하고 04_QA.md를 아래 형식으로 저장한다.
+출력 형식 엄수(전체 표·프롬프트 재기재 금지):
+
+EP{n}_Q1: PASS
+EP{n}_Q2_B: `aggressive` + `gentle` 모순 → `aggressive` 제거. 수정 완료.
+EP{n}_Q3: PASS
+
+점검 항목(내부 체크): 글자수 / `instrumental, no vocals` / 가사 혼입 / CUE_ID 정합 / 톤 일관성 / 변형 3개.
+문제 시 03만 수정 후 해당 행에 수정 내용 기재.
+04_QA.md = CUE_ID 줄만. 헤딩·점검 표·항목별 요약 없음.
 
 ## 종료
 03_프롬프트.md(필요시 04_QA.md) 저장 후 마지막 줄에 정확히 `SPOT_DONE EP{n} cues=<큐개수>` 한 줄만 출력하고 끝낸다.
@@ -282,7 +291,19 @@ def spot_prompt(project: str, n: int, ep_dir: Path, work_root: Path,
 {_variant_format(n)}
 
 ### 4) QA → {p(out_04)}
-가이드 §7 체크리스트로 자가검수. 각 큐 PASS/수정. 글자수·instrumental 표기·가사 혼입·CUE_ID 정합·톤 일관성·변형 3개 존재 점검. 문제 발견 시 2)·3) 파일을 직접 수정 후 재검.
+가이드 §7 기준으로 03_프롬프트를 검수하고 결과를 04_QA.md에 저장한다.
+출력 형식 엄수(전체 표·프롬프트 재기재 금지):
+
+EP{n}_Q1: PASS
+EP{n}_Q2: PASS
+EP{n}_Q3_A: `no percussion` + `sub bass drop` 모순 → `no drums`로 교체. 수정 완료.
+EP{n}_Q3_B: PASS
+EP{n}_Q4: PASS
+
+점검 항목(내부 체크, 위 형식 외 출력 안 함):
+글자수 ≤1000자 / `instrumental, no vocals` 포함 / Write 블록 가사 0 / CUE_ID 정합 / 톤 일관성 / 변형 3개 존재 / 모순 키워드.
+문제 발견 시 2)·3) 파일을 직접 수정 후 해당 행에 수정 내용 기재.
+04_QA.md = CUE_ID 줄만. 헤딩·점검 표·항목별 요약 없음.
 
 ## 종료
 4개 파일을 모두 저장했으면 마지막 줄에 정확히 `SPOT_DONE EP{n} cues=<큐개수>` 한 줄만 출력하고 끝낸다.

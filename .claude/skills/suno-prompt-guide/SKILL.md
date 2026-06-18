@@ -115,12 +115,23 @@ Cue Board v0.3 자동 스팟팅은 큐당 **음악적으로 구별되는 3변형
 
 ## 7. 검수 체크리스트 (QA용, v5.5)
 
-- [ ] Styles 글자수 ≤1000자(밀도 권장 ≤950)
-- [ ] `Lyrics 탭: Write` 명시 + **Write 블록에 구조 태그만(가사 단어 0)**, Styles 끝에 `instrumental, no vocals` 유지
-- [ ] Write 블록에 실제 가사(부를 단어)가 섞이지 않았는지 — `[태그]`와 사운드 지시만 허용
-- [ ] BPM·키·장르·악기 2개+ 포함(Styles)
-- [ ] 모순 키워드 없음 / 언어 혼입·오타 없음(키릴문자 등)
-- [ ] 아티스트 실명 미사용(질감 묘사로 대체)
-- [ ] CUE_ID가 큐시트와 일치
-- [ ] 같은 작품 내 톤/악기 팔레트 일관성 유지
-- [ ] more options(Exclude Styles / Weirdness / Style Influence) 미기재 — 기본값 유지
+점검 항목(내부에서만 확인, 출력 안 함):
+- Styles 글자수 ≤1000자(밀도 권장 ≤950)
+- `Lyrics 탭: Write` 명시 + Write 블록에 구조 태그만(가사 단어 0), Styles 끝에 `instrumental, no vocals` 유지
+- Write 블록에 실제 가사(부를 단어)가 섞이지 않았는지
+- BPM·키·장르·악기 2개+ 포함(Styles)
+- 모순 키워드 없음 / 언어 혼입·오타 없음(키릴문자 등)
+- 아티스트 실명 미사용(질감 묘사로 대체)
+- CUE_ID가 큐시트와 일치
+- 같은 작품 내 톤/악기 팔레트 일관성 유지
+- more options(Exclude Styles / Weirdness / Style Influence) 미기재
+
+**검수 결과 출력 형식 (이 형식 외 일절 금지 — 표·전체 프롬프트 재기재 절대 금지):**
+```
+EP{n}_Q1: PASS
+EP{n}_Q2_B: `no percussion` + `sub bass drop` 모순 → `no drums`로 교체. 수정 완료.
+EP{n}_Q3: PASS
+EP{n}_Q4: PASS
+```
+문제 없으면 `CUE_ID: PASS` 한 줄. 문제 있으면 `CUE_ID_변형: 원인 → 수정내용` 한 줄. 그 외 텍스트 없음.
+파일 전체 = 위 CUE_ID 라인들만. `##`·`###` 헤딩, 점검 표, 항목별 요약, 설명 텍스트 없음.

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cue Board — 숏폼드라마 음악 워크플로우</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  background: #eef0f3; color: #1d2127; line-height: 1.7;
+}
+
+/* ── 히어로 ── */
+.hero {
+  background: #1d2127; color: #fff;
+  padding: 64px 32px 56px; text-align: center;
+}
+.hero-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  background: rgba(45,108,223,.35); color: #7eaaff;
+  padding: 4px 14px; border-radius: 20px; margin-bottom: 20px;
+  border: 1px solid rgba(45,108,223,.5);
+}
+.hero h1 {
+  font-size: 36px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 14px;
+  line-height: 1.25;
+}
+.hero h1 span { color: #5a9eff; }
+.hero p {
+  font-size: 16px; color: #9aa3b0; max-width: 560px;
+  margin: 0 auto 32px; line-height: 1.8;
+}
+.hero-stats {
+  display: flex; justify-content: center; gap: 40px; flex-wrap: wrap;
+}
+.hstat { text-align: center; }
+.hstat-num {
+  font-size: 28px; font-weight: 800; color: #5a9eff; display: block;
+}
+.hstat-label { font-size: 12px; color: #6b7686; margin-top: 2px; }
+
+/* ── 공통 레이아웃 ── */
+.section { padding: 56px 32px; max-width: 1000px; margin: 0 auto; }
+.section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #2d6cdf; margin-bottom: 8px;
+}
+.section-title {
+  font-size: 24px; font-weight: 800; margin-bottom: 10px; letter-spacing: -.3px;
+}
+.section-desc { font-size: 14px; color: #5a626f; max-width: 560px; margin-bottom: 36px; }
+
+/* ── 구분선 ── */
+.sep { border: 0; border-top: 1px solid #d7dbe0; margin: 0; }
+
+/* ── 기능 카드 그리드 ── */
+.feat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.feat-card {
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 12px;
+  padding: 22px 22px 20px;
+  transition: box-shadow .15s;
+}
+.feat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
+.feat-icon {
+  font-size: 24px; margin-bottom: 12px; display: block;
+  width: 46px; height: 46px; background: #eef2f7;
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+}
+.feat-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.feat-card p { font-size: 13px; color: #5a626f; line-height: 1.65; }
+.feat-tag {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 1px 7px; border-radius: 10px; margin-top: 10px;
+}
+.tag-live { background: #eafaf0; color: #2bb673; }
+.tag-beta { background: #eaf1fd; color: #2d6cdf; }
+
+/* ── 워크플로우 ── */
+.pipeline {
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 12px;
+  padding: 28px 28px; margin-bottom: 20px;
+}
+.pipeline-title {
+  font-size: 12px; font-weight: 700; color: #5a626f;
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 16px;
+}
+.flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.flow-step {
+  background: #eaf1fd; color: #2d6cdf; font-weight: 700; font-size: 13px;
+  padding: 6px 16px; border-radius: 20px; white-space: nowrap;
+}
+.flow-step.ai {
+  background: #1d2127; color: #7eaaff;
+}
+.flow-arrow { color: #9aa3b0; font-size: 18px; }
+.flow-note { font-size: 11.5px; color: #9aa3b0; margin-top: 10px; }
+
+/* ── 3패널 다이어그램 ── */
+.panel-diagram {
+  display: grid; grid-template-columns: 160px 1fr 340px;
+  gap: 12px; margin-bottom: 20px;
+}
+.panel-box {
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 10px;
+  padding: 16px 16px; min-height: 160px;
+}
+.panel-box h4 {
+  font-size: 11px; font-weight: 700; color: #5a626f;
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid #eef2f7;
+}
+.panel-item {
+  font-size: 12px; color: #5a626f; padding: 4px 0;
+  display: flex; align-items: center; gap: 6px;
+}
+.panel-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: #cfd5dd;
+  flex-shrink: 0;
+}
+.panel-dot.active { background: #2d6cdf; }
+.panel-dot.done   { background: #2bb673; }
+.panel-dot.warn   { background: #e6a23c; }
+
+/* ── 현황 ── */
+.status-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.status-card {
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 10px;
+  padding: 18px 20px;
+}
+.status-card .num {
+  font-size: 30px; font-weight: 800; color: #2d6cdf; line-height: 1;
+  margin-bottom: 4px;
+}
+.status-card .label { font-size: 12px; color: #9aa3b0; }
+.status-card .sub { font-size: 11px; color: #9aa3b0; margin-top: 2px; }
+
+/* ── 로드맵 ── */
+.roadmap { display: flex; flex-direction: column; gap: 12px; }
+.road-item {
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 10px;
+  padding: 16px 20px; display: flex; align-items: flex-start; gap: 16px;
+}
+.road-badge {
+  font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 10px;
+  white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+}
+.road-badge.next   { background: #eaf1fd; color: #2d6cdf; }
+.road-badge.later  { background: #f1f2f4; color: #5a626f; }
+.road-badge.idea   { background: #fdf0e3; color: #c87d24; }
+.road-item h4 { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.road-item p  { font-size: 12px; color: #5a626f; line-height: 1.6; }
+
+/* ── 기술 스택 ── */
+.tech-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.tech-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: #fff; border: 1px solid #e1e5ea; border-radius: 8px;
+  padding: 8px 14px; font-size: 12px;
+}
+.tech-chip .tc-label { font-weight: 700; color: #1d2127; }
+.tech-chip .tc-sub   { color: #9aa3b0; font-size: 11px; margin-left: 4px; }
+
+/* ── 푸터 ── */
+footer {
+  text-align: center; font-size: 11px; color: #9aa3b0;
+  padding: 28px 0 40px; border-top: 1px solid #d7dbe0; margin-top: 20px;
+}
+</style>
+</head>
+<body>
+
+<!-- ── 히어로 ── -->
+<div class="hero">
+  <div class="hero-badge">Music Director Workflow</div>
+  <h1>Cue Board<br><span>숏폼드라마 음악 스팟팅 도구</span></h1>
+  <p>대본 분석부터 SUNO 인스트루멘탈 프롬프트 생성까지 — Claude AI가 통합된 음악감독 전용 로컬 웹앱</p>
+  <div class="hero-stats">
+    <div class="hstat"><span class="hstat-num">32화+</span><div class="hstat-label">작업 완료 화수</div></div>
+    <div class="hstat"><span class="hstat-num">160+</span><div class="hstat-label">총 변형 프롬프트</div></div>
+    <div class="hstat"><span class="hstat-num">A·B·C</span><div class="hstat-label">큐당 변형 체계</div></div>
+    <div class="hstat"><span class="hstat-num">0</span><div class="hstat-label">외부 의존성</div></div>
+  </div>
+</div>
+
+<!-- ── 개요 ── -->
+<div class="section">
+  <div class="section-label">개요</div>
+  <div class="section-title">무엇을 만들고 있나</div>
+  <div class="section-desc">숏폼드라마 후반 작업에서 음악감독이 쓰는 로컬 도구입니다. 대본을 읽고, 어디에 어떤 음악을 넣을지 스팟팅하고, SUNO v5.5 인스트루멘탈 프롬프트를 A/B/C 3변형으로 자동 생성합니다. 외부 클라우드 없이 Python 표준 라이브러리만으로 구동됩니다.</div>
+
+  <div class="panel-diagram">
+    <div class="panel-box">
+      <h4>화 목록</h4>
+      <div class="panel-item"><span class="panel-dot done"></span> 30화</div>
+      <div class="panel-item"><span class="panel-dot done"></span> 31화</div>
+      <div class="panel-item"><span class="panel-dot done"></span> 32화</div>
+      <div class="panel-item"><span class="panel-dot warn"></span> 33화 (예정)</div>
+      <div class="panel-item"><span class="panel-dot"></span> 34화 ~</div>
+    </div>
+    <div class="panel-box">
+      <h4>대본 뷰어</h4>
+      <div class="panel-item"><span class="panel-dot active"></span> 씬 단위 하이라이트 밴드</div>
+      <div class="panel-item"><span class="panel-dot active"></span> 큐 레이블 (EP31 · #63 · Q2)</div>
+      <div class="panel-item"><span class="panel-dot active"></span> 드래그로 커버 구간 설정</div>
+      <div class="panel-item"><span class="panel-dot active"></span> 큐 클릭 → 카드 스크롤</div>
+    </div>
+    <div class="panel-box">
+      <h4>큐 카드</h4>
+      <div class="panel-item"><span class="panel-dot active"></span> A·B·C 변형 탭 전환</div>
+      <div class="panel-item"><span class="panel-dot active"></span> 선택(★) / 킵(Keep) 저장</div>
+      <div class="panel-item"><span class="panel-dot active"></span> 감독 코멘트 입력</div>
+      <div class="panel-item"><span class="panel-dot active"></span> 단일 큐 재생성</div>
+      <div class="panel-item"><span class="panel-dot active"></span> 큐 삭제 · 추가</div>
+      <div class="panel-item"><span class="panel-dot active"></span> 재사용 배지 표시</div>
+    </div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ── 핵심 기능 ── -->
+<div class="section">
+  <div class="section-label">기능</div>
+  <div class="section-title">지금까지 만든 것들</div>
+  <div class="section-desc">음악감독 워크플로우에서 반복되는 작업을 하나씩 자동화해왔습니다.</div>
+
+  <div class="feat-grid">
+
+    <div class="feat-card">
+      <div class="feat-icon">⚡</div>
+      <h3>자동 스팟팅</h3>
+      <p>대본 raw 텍스트를 Claude에게 넘기면 씬 분석 → 큐시트 → SUNO 프롬프트까지 4파일을 한 번에 생성합니다.</p>
+      <span class="feat-tag tag-live">구현 완료</span>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">🎵</div>
+      <h3>A·B·C 3변형 체계</h3>
+      <p>큐당 A(정공법)·B(대안 색)·C(실험)을 동시에 생성. 탭으로 전환하며 비교하고 최적안을 선택합니다.</p>
+      <span class="feat-tag tag-live">구현 완료</span>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">💬</div>
+      <h3>감독 코멘트 → 재생성</h3>
+      <p>"스트링을 더 얇게, 드럼 제거" 같은 수정 지시를 입력하면 해당 큐만 Claude에게 재지시해 3변형을 교체합니다.</p>
+      <span class="feat-tag tag-live">구현 완료</span>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">↔️</div>
+      <h3>드래그 구간 설정</h3>
+      <p>대본 텍스트를 드래그해 큐의 실제 커버 구간(IN/OUT 포인트)을 직접 설정. <code>range_override</code>로 저장됩니다.</p>
+      <span class="feat-tag tag-live">구현 완료</span>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">♻️</div>
+      <h3>재사용 큐 라이브러리</h3>
+      <p>이전 화에서 쓴 큐 중 재활용 가능한 것들을 라이브러리로 관리. 새 스팟팅 시 재사용 여부를 Claude가 먼저 검토합니다.</p>
+      <span class="feat-tag tag-live">구현 완료</span>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">✂️</div>
+      <h3>큐 삭제 · 추가</h3>
+      <p>카드 hover 시 나타나는 × 버튼으로 큐 삭제. 플로팅 버튼으로 원하는 위치에 새 큐 추가. 큐시트와 프롬프트 파일에 즉시 반영됩니다.</p>
+      <span class="feat-tag tag-live">구현 완료</span>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">🏷️</div>
+      <h3>씬·Q 스마트 표시</h3>
+      <p>큐 카드 헤더에 <code>EP31 · #63 · Q2</code> 형식으로 화·씬·씬 상대 Q번호 표시. <code>#63-c~d</code> 같은 알파벳 구간 표기는 <code>#63</code>으로 자동 정규화합니다.</p>
+      <span class="feat-tag tag-live">구현 완료</span>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">🚀</div>
+      <h3>서버 side splice (방안B)</h3>
+      <p>단일 큐 재생성 시 Claude는 큐 블록만 출력, 서버가 <code>03_프롬프트.md</code>에 직접 splice. 토큰·속도 모두 절감. single_cue는 Claude Haiku로 구동합니다.</p>
+      <span class="feat-tag tag-live">구현 완료</span>
+    </div>
+
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ── 워크플로우 ── -->
+<div class="section">
+  <div class="section-label">워크플로우</div>
+  <div class="section-title">어떻게 돌아가나</div>
+  <div class="section-desc">두 가지 흐름이 있습니다 — 화 전체 자동 스팟팅과, 개별 큐 수정 루프.</div>
+
+  <div class="pipeline">
+    <div class="pipeline-title">전체 스팟팅 파이프라인 (화 신규 생성)</div>
+    <div class="flow">
+      <span class="flow-step">00_대본raw.txt</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Sonnet · 분석</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">01_분석.md</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Sonnet · 스팟팅</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">02_큐시트.md</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Sonnet · 프롬프트</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">03_프롬프트.md (A/B/C)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">04_QA.md</span>
+    </div>
+    <div class="flow-note">Cue Board의 "자동 스팟팅" 버튼 한 번으로 전 단계 실행 · 로그 실시간 스트리밍</div>
+  </div>
+
+  <div class="pipeline">
+    <div class="pipeline-title">단일 큐 수정 루프 (감독 코멘트 반영)</div>
+    <div class="flow">
+      <span class="flow-step">감독 코멘트 입력</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">재생성 버튼</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step ai">Claude Haiku · single_cue</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">_block.md 출력</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">서버 splice</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">카드 즉시 갱신</span>
+    </div>
+    <div class="flow-note">파일 읽기 최소화 — Claude는 해당 큐 블록만 처리, 나머지 화 데이터는 건드리지 않음</div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ── 현황 ── -->
+<div class="section">
+  <div class="section-label">현황</div>
+  <div class="section-title">지금 어디까지 왔나</div>
+
+  <div class="status-grid">
+    <div class="status-card">
+      <div class="num">32화</div>
+      <div class="label">완성 화수</div>
+      <div class="sub">며느리가 친정을 숨김</div>
+    </div>
+    <div class="status-card">
+      <div class="num">14</div>
+      <div class="label">총 커밋</div>
+      <div class="sub">초기 커밋 ~ 현재</div>
+    </div>
+    <div class="status-card">
+      <div class="num">v0.5</div>
+      <div class="label">Cue Board 버전</div>
+      <div class="sub">UI 개선 완료</div>
+    </div>
+    <div class="status-card">
+      <div class="num">~70%</div>
+      <div class="label">single_cue 속도 향상</div>
+      <div class="sub">Sonnet → Haiku 전환</div>
+    </div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ── 로드맵 ── -->
+<div class="section">
+  <div class="section-label">향후 계획</div>
+  <div class="section-title">앞으로 만들 것들</div>
+  <div class="section-desc">워크플로우에서 아직 손이 많이 가는 부분들을 순서대로 자동화할 계획입니다.</div>
+
+  <div class="roadmap">
+
+    <div class="road-item">
+      <span class="road-badge next">다음</span>
+      <div>
+        <h4>서버사이드 큐 블록 추출 (single_cue 파일 읽기 최적화)</h4>
+        <p>현재 single_cue 모드에서 서버가 파일을 5개 읽는 구조를 1개(큐 블록만)로 단축. context 토큰 절감 + 추가 속도 향상.</p>
+      </div>
+    </div>
+
+    <div class="road-item">
+      <span class="road-badge next">다음</span>
+      <div>
+        <h4>큐 카드 드래그 재배열</h4>
+        <p>카드 순서를 드래그로 변경하면 큐시트·프롬프트 파일 내 블록 순서도 자동 재정렬. 스팟팅 후 순서 조정이 빈번해 필요성 높음.</p>
+      </div>
+    </div>
+
+    <div class="road-item">
+      <span class="road-badge later">예정</span>
+      <div>
+        <h4>SUNO 결과 오디오 임베드</h4>
+        <p>SUNO에서 생성한 MP3를 큐 카드에 직접 붙여 재생. A/B/C 변형별 오디오를 탭 전환하며 비교 청취.</p>
+      </div>
+    </div>
+
+    <div class="road-item">
+      <span class="road-badge later">예정</span>
+      <div>
+        <h4>화간 일관성 대시보드</h4>
+        <p>음악 바이블의 악기 팔레트·모티프 배치를 화수별로 시각화. 빌런 테마가 몇 화에 몇 번 쓰였는지 한눈에 파악.</p>
+      </div>
+    </div>
+
+    <div class="road-item">
+      <span class="road-badge later">예정</span>
+      <div>
+        <h4>멀티 프로젝트 전환 UI</h4>
+        <p>현재는 한 작품(며느리가 친정을 숨김)에 고정. 헤더에서 작품을 드롭다운으로 전환하면 해당 작품 데이터로 전환되는 구조 추가.</p>
+      </div>
+    </div>
+
+    <div class="road-item">
+      <span class="road-badge idea">아이디어</span>
+      <div>
+        <h4>PDF 대본 자동 추출</h4>
+        <p>제작사에서 받은 PDF 대본을 그대로 업로드하면 OCR + 씬 분리까지 자동 처리해 <code>00_대본raw.txt</code> 생성. 현재는 수동 정리 필요.</p>
+      </div>
+    </div>
+
+    <div class="road-item">
+      <span class="road-badge idea">아이디어</span>
+      <div>
+        <h4>변형 비교 A/B 테스트 플레이어</h4>
+        <p>같은 씬에서 A·B·C를 순서 없이 무작위 재생, 어떤 변형인지 모르는 상태에서 선택. 선입견 없는 음악 선택 지원.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ── 기술 스택 ── -->
+<div class="section">
+  <div class="section-label">기술</div>
+  <div class="section-title">무엇으로 만들었나</div>
+  <div class="section-desc" style="margin-bottom:20px;">외부 프레임워크 없이 표준 라이브러리 + 바닐라 JS로 구성. 별도 설치 없이 <code>python server.py</code> 한 줄로 실행됩니다.</div>
+
+  <div class="tech-row">
+    <div class="tech-chip">
+      <span class="tc-label">Python 3.12</span>
+      <span class="tc-sub">서버 · 파일 처리 (표준 라이브러리만)</span>
+    </div>
+    <div class="tech-chip">
+      <span class="tc-label">Vanilla JS</span>
+      <span class="tc-sub">프론트엔드 (프레임워크 없음)</span>
+    </div>
+    <div class="tech-chip">
+      <span class="tc-label">Claude API</span>
+      <span class="tc-sub">Sonnet (full/prompts) · Haiku (single_cue)</span>
+    </div>
+    <div class="tech-chip">
+      <span class="tc-label">SUNO v5.5</span>
+      <span class="tc-sub">인스트루멘탈 생성 대상 모델</span>
+    </div>
+    <div class="tech-chip">
+      <span class="tc-label">Markdown</span>
+      <span class="tc-sub">큐시트 · 프롬프트 저장 형식</span>
+    </div>
+    <div class="tech-chip">
+      <span class="tc-label">JSON</span>
+      <span class="tc-sub">selection.json — 선택·킵·코멘트 상태</span>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Cue Board v0.5 &nbsp;·&nbsp; 며느리가 친정을 숨김 &nbsp;·&nbsp; 2026-06-12
+</footer>
+
+</body>
+</html>
